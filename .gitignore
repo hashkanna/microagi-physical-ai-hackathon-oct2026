@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.egg-info/
+.pytest_cache/
+# private recordings never go into the public repo
+recordings/
+*.mov
+*.MOV

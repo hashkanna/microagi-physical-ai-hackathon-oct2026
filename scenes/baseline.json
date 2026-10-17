@@ -1,0 +1,24 @@
+{
+  "schema_version": "cellcheck.scene/v1",
+  "name": "baseline",
+  "notes": [
+    "Sample scene: a 1.0 x 0.7 m desk, Panda mounted at the back edge facing the front edge.",
+    "Block mass (0.10 kg) and friction (1.0) are default assumptions, not measurements."
+  ],
+  "table": {"width": 1.0, "depth": 0.7, "height": 0.75, "thickness": 0.04, "friction": 0.8,
+            "provenance": {"width": "measured", "depth": "measured", "height": "default"}},
+  "robot": {"model": "franka_panda", "x": 0.5, "y": 0.62, "yaw_deg": -90,
+            "provenance": {"x": "user_confirmed", "y": "user_confirmed", "yaw_deg": "user_confirmed"}},
+  "objects": [
+    {"id": "block_1", "kind": "block", "label": "red cube", "x": 0.42, "y": 0.26, "yaw_deg": 15,
+     "size": [0.045, 0.045, 0.045], "color": [0.85, 0.18, 0.15],
+     "provenance": {"x": "inferred", "y": "inferred", "yaw_deg": "inferred", "size": "measured"}},
+    {"id": "bin_a", "kind": "bin", "label": "blue tray", "x": 0.2, "y": 0.3, "yaw_deg": 0,
+     "size": [0.2, 0.16, 0.06], "wall_thickness": 0.008, "color": [0.2, 0.42, 0.85],
+     "provenance": {"x": "inferred", "y": "inferred", "size": "inferred"}},
+    {"id": "bin_b", "kind": "bin", "label": "grey tote", "x": 0.74, "y": 0.3, "yaw_deg": 0,
+     "size": [0.22, 0.18, 0.08], "wall_thickness": 0.008, "color": [0.55, 0.57, 0.6],
+     "provenance": {"x": "inferred", "y": "inferred", "size": "inferred"}}
+  ],
+  "task": {"type": "pick_and_place", "object_id": "block_1", "target_id": "bin_b"}
+}
