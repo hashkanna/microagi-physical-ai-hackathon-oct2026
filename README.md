@@ -41,7 +41,11 @@ transparent assumptions, and visible task checks**.
 6. **Check**, reported separately: scene compiled · scene settled · required targets reachable · no unexpected collisions · block placed.
    Placement passes only when the block is inside the target bin, below its rim, and slower than 0.02 m/s
    for 0.5 s after release and retreat.
-7. **Fix**: when a target is out of reach, CellCheck searches for the smallest move that makes the whole plan
+7. **Stress the assumptions**: after a pass, CellCheck runs an **uncertainty check**. It re-runs the physics on 8
+   variants whose poses are jittered according to their provenance: inferred/default values by ±3 cm and ±8°
+   (about the calibration error we measured), measured/confirmed values by ±0.5 cm and ±2°. It reports
+   "8/8 perturbed variants pass" (robust) or flags the layout as sensitive. This is a sensitivity check, not a guarantee.
+8. **Fix**: when a target is out of reach, CellCheck searches for the smallest move that makes the whole plan
    reachable and **suggests** it (verified by IK). It never applies it silently. Typed corrections become
    validated patches against stable object IDs; unrelated objects are preserved, and previous runs are marked stale.
 
@@ -80,11 +84,13 @@ tabletop; **+x → right edge**, **+y → back edge**, **+z up**. Metres; sizes 
 |---|---|
 | Baseline, alternate (side-mounted robot, block starting in a tray, rotated tote) | both pass all 5 checks |
 | Unreachable layout | fails `reachable`; execution halts before the transfer; a suggestion is produced |
-| Random target-bin placements inside the reach map (36 runs, random yaw) | 35/36 succeed. The 1 failure is a real hand–bin-wall collision (bin placed against the block), correctly flagged |
+| Random target-bin placements inside the reach map (36 runs, random yaw; `scripts/sweep_layouts.py`) | 35/36 succeed. The 1 failure is a real hand–bin-wall collision (bin placed against the block), correctly flagged |
 | Calibration on the synthetic capture (model-guessed pixels with ~6 px noise) | object position error **4–14 cm** from the model's metric guess alone → **0.2–2.7 cm** after 4-corner + measured-size calibration |
 | Demo story (capture → calibrate → run → move robot → unreachable → accept suggestion → run) | 4 scene versions, 3 manual corrections (calibration, typed correction, accepted suggestion), 13–25 s per run on a 4-core CPU (physics + IK ≈ 1–2 s; the rest is MP4 rendering) |
 | Fresh `git clone` → `./run.sh` → `scripts/demo_story.py` | installs pinned deps, auto-selects EGL, and the full story passes |
-| Test suite | 65 passed, 1 skipped (live OpenAI call; no key in the build environment) |
+| Uncertainty check (8 perturbed variants) | baseline, alternate, and demo-story v2/v4 are all 8/8 robust (≈3 s for 8 physics rollouts on 4 cores) |
+| What the uncertainty check caught in our own controller | its first run flagged the suggested fix as **sensitive (6/8)**: the 20 cm hand housing cleared the tote rim by only 1.25 cm at release, so a few cm of pose error made it clip the wall. We raised the release height to keep 3 cm clearance and required ≥5 cm reach margin for suggestions, after which all were 8/8 |
+| Test suite | 66 passed, 1 skipped (live OpenAI call; no key in the build environment) |
 
 The calibration figures come from a *synthetic* render with simulated pixel noise. They show that the pipeline maps
 pixels correctly. They do not measure real-world accuracy.
@@ -130,6 +136,7 @@ web/ (vanilla JS)  ──HTTP──▶  cellcheck/server.py (FastAPI)
                                  ├─ store.py        immutable versions, runs, evidence
                                  └─ worker.py ──subprocess──▶ sim.py (Mink IK + MuJoCo physics + checks)
                                                               reach.py (reach map, suggested fixes)
+                                                              robust.py (provenance-scaled uncertainty check)
                                                               render.py (EGL/OSMesa → MP4, parallel chunks)
 ```
 

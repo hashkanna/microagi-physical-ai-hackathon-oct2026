@@ -168,7 +168,7 @@ def main():
     ui(t("capture_loaded") + 1.0, t("calibrated") + 0.6, "2 Calibrate", "Measured table size + 4 clicked corners → positions in the table frame", target=7.0)
     ui(t("calibrated") + 0.6, t("run1_run_done"), "3 Simulate", "Scripted pick-and-place in MuJoCo physics (waiting sped up)", target=2.0)
     clip("run1_run_done", 2.0, 15.0, "3 Simulate", "Mink IK → actuator commands only → block held by contact friction", 3.2)
-    still("run1_shown", RESULT_BOX, 3.2, "3 Simulate", "All 5 checks pass, and the result is bound to scene v2")
+    still("run1_shown", RESULT_BOX, 4.0, "3 Simulate", "5/5 checks pass, and an uncertainty check re-runs 8 perturbed variants: 8/8 pass")
     ui(t("run1_shown"), t("correction_applied"), "4 Change", "\"Move the robot 50 cm toward the left edge\" → new scene version v3", target=4.0)
     ui(t("correction_applied"), t("run2_run_done"), "4 Change", "Re-running the task on v3 (waiting sped up)", target=1.5)
     clip("run2_run_done", 2.0, 12.0, "4 Change", "The target is outside the reachable zone, so the robot halts. No fake success", 2.6)
@@ -176,7 +176,7 @@ def main():
     ui(t("run2_shown"), t("suggestion_applied"), "5 Fix", "Accept the suggestion → scene v4", target=2.5)
     ui(t("suggestion_applied"), t("run3_run_done"), "5 Fix", "Fresh run on v4 (waiting sped up)", target=1.5)
     clip("run3_run_done", 2.0, 15.0, "5 Fix", "Physics replay: placed inside the tote, below the rim, at rest", 3.2)
-    still("run3_shown", RESULT_BOX, 3.2, "5 Fix", "Placement succeeded on v4. Earlier runs are kept and marked stale")
+    still("run3_shown", RESULT_BOX, 3.2, "5 Fix", "v4 passes and is robust (8/8 variants). Earlier runs are kept and marked stale")
     still("end", (0, 0, 1440, 900), 3.0, "5 Fix", "Every run is bound to a version, with downloadable evidence (frames, JSON, MJCF, video)")
     plan.append(("card", TMP / "end.png", "", "", 3.5))
 

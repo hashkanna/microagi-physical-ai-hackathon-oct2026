@@ -9,7 +9,7 @@ with a canned extraction, and it is labelled FIXTURE everywhere. With a key, upl
 | 0–6 s | Start screen | "Before you bolt a robot to a bench, you want to know: can it actually do the job *here*? CellCheck answers that from a phone video." |
 | 6–14 s | Capture → frames + draft workcell, provenance chips | "We sample sharp frames, and a vision model returns a structured estimate. Every value is tagged: inferred, measured, confirmed, or default." |
 | 14–22 s | Calibration: type 140 × 70 cm, click 4 corners | "I enter the measured table size and click the four corners. Object positions snap into the table frame." |
-| 22–30 s | Run task → playback, 5 green checks | "MuJoCo runs a real pick-and-place. The arm is driven only by actuator commands, and the block moves by contact friction. Five checks pass." |
+| 22–30 s | Run task → playback, 5 green checks, uncertainty 8/8 | "MuJoCo runs a real pick-and-place. The arm is driven only by actuator commands, and the block moves by contact friction. Five checks pass. Then we re-run eight variants with the estimated values jittered, and all eight pass." |
 | 30–40 s | Type *"Move the robot 50 cm toward the left edge"* → run → red reach check, HALTED, green reach zone | "Now a planning question: mount the robot further left? New version, fresh run. The tote is outside the reachable zone, so the arm halts." |
 | 40–52 s | Suggestion card → *Apply as new version* → run → green | "CellCheck suggests the smallest move that makes the plan reachable. It never applies it silently. I accept it, and the rerun passes." |
 | 52–60 s | Version timeline v1→v4, downloads | "Every run is bound to a scene version, with downloadable evidence. It's an approximate workcell with transparent assumptions and visible checks." |

@@ -105,7 +105,7 @@ async def main(base: str, out: Path):
                 "() => /Placement succeeded|Task failed/i.test(document.querySelector('#checks')?.innerText || '')", timeout=15000)
             await page.wait_for_timeout(900)
             await page.evaluate("""() => { const ck = document.querySelector('#checks'); const col = document.querySelector('.col-sim');
-                if (ck && col) col.scrollTo({top: Math.max(0, ck.offsetTop - 330), behavior: 'smooth'}); }""")
+                if (ck && col) col.scrollTo({top: Math.max(0, ck.offsetTop - 200), behavior: 'smooth'}); }""")
             await page.wait_for_timeout(700)
             await mark(f"{label}_run_done", run_id=rid, success=r["success"], video=r.get("video_url"))
             return r
