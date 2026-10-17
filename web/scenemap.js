@@ -121,6 +121,10 @@ export function renderTopdown(scene, opts = {}) {
     } else {
       g.push(`<rect x="${f(-sx / 2)}" y="${f(-sy / 2)}" width="${f(sx)}" height="${f(sy)}" fill="${rgb(o.color, '#e5484d')}" stroke="${hl ? '#f0b429' : '#ffd0d0'}" stroke-width="${fs(hl ? 2 : 1)}"/>`);
     }
+    if (opts.draggable) {
+      const hx = Math.max(sx, 0.08) / 2, hy = Math.max(sy, 0.08) / 2;
+      g.push(`<rect x="${f(-hx)}" y="${f(-hy)}" width="${f(2 * hx)}" height="${f(2 * hy)}" fill="rgba(0,0,0,0)" pointer-events="all"/>`);
+    }
     g.push('</g>');
     out.push(g.join(''));
     const ly = o.kind === 'bin' ? -o.y + Math.max(sx, sy) / 2 * 0 + fs(3.5) * 1 : -o.y - sy / 2 - fs(4) * 1;

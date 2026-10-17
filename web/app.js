@@ -415,7 +415,7 @@ function renderStart() {
   $('#startView').innerHTML = `
     <div class="hero">
       <div class="eyebrow">Physical AI · workcell check</div>
-      <h1>Check a robot task on your bench —<br><span class="grad">from a 20-second phone video.</span></h1>
+      <h1>Check a robot task on your bench —<br><span class="grad">from a short phone video.</span></h1>
       <p class="lede">CellCheck turns a phone capture into an <b>approximate, editable MuJoCo workcell</b> (table, two bins, one block, a Franka Panda), runs a scripted pick-and-place in simulation and shows <b>visible pass/fail checks</b>. Every value is tagged with where it came from. Correct anything in plain language and re-run.</p>
       <div class="flow">
         <div class="flow-step"><span class="step">1</span><div><b>Capture</b><span>phone video → frames → scene</span></div></div>
@@ -436,7 +436,7 @@ function renderStart() {
             <div class="dz-sub">${esc(up.name)}</div>` : `
             <div class="dz-icon">${icon('upload')}</div>
             <div class="dz-title">Drop a video here or <u>choose a file</u></div>
-            <div class="dz-sub">Walk slowly around the table, ~15–30 s. MP4 / MOV.</div>`}
+            <div class="dz-sub">Walk slowly around the table for 30–60 s; start with all four corners in view. MP4 / MOV.</div>`}
         </label>
       </div>
       <div class="panel start-card">
@@ -508,8 +508,8 @@ function renderCapture() {
             <img id="mainFrame" src="${esc(frame.url)}" alt="Frame ${frame.index}">
             <svg id="mainOverlay" class="frame-overlay"></svg>
           </div>
-          <div class="frame-cap"><span class="mono">frame ${String(frame.index).padStart(2, '0')} · t=${num(frame.t, 1)} s</span>
-            ${showOverlay ? '<span class="tag tag-blue">corners marked</span>' : frame.index === p.overview_frame ? '<span class="tag">overview</span>' : ''}${p.video_url ? `<a class="small" href="${esc(p.video_url)}" target="_blank" rel="noopener">source video</a>` : ''}</div>
+          <div class="frame-cap"><span class="mono">frame ${String(frame.index).padStart(2, '0')}${frame.t != null ? ` · t=${num(frame.t, 1)} s` : ''}</span>
+            ${showOverlay ? '<span class="tag tag-blue">corners marked</span>' : frame.index === p.overview_frame ? '<span class="tag">overview</span>' : ''}${p.video_url ? `<a class="small vid-link" href="${esc(p.video_url)}" target="_blank" rel="noopener" title="Open the source video">${icon('film')}</a>` : ''}</div>
         </div>
         <div class="thumbs" id="thumbs">${frames.map((f) => `<button class="thumb ${f.index === frame.index ? 'sel' : ''}" data-frame="${f.index}" title="frame ${f.index} · t=${f.t}s"><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join('')}</div>
         <div class="muted small">${frames.length} frames sampled from the ${p.source === 'upload' ? 'uploaded video' : `${esc(p.source)} capture`}</div>
@@ -546,7 +546,7 @@ function renderCapture() {
             ${state.busy.extract === 'vision' ? `<span class="spin"></span> Asking ${esc(s?.vision_model || 'model')} to read ${frames.length} frames…` : `${icon('spark')} Run vision extraction${s?.vision_model ? ` <span class="muted">· ${esc(s.vision_model)}</span>` : ''}`}
           </button>
         </span>
-        <button class="btn btn-block btn-fixture" id="extractFixture" ${ro || state.busy.extract || p.source === 'upload' ? 'disabled' : ''} data-tip="${p.source === 'upload' ? 'A fixture extraction would not describe your uploaded recording. Set OPENAI_API_KEY for real extraction, or start a fixture project.' : 'Loads a pre-recorded (canned) model response for the bundled capture. Clearly labelled FIXTURE — no model call.'}">
+        <button class="btn btn-block btn-fixture" id="extractFixture" ${ro || state.busy.extract || p.source === 'upload' || p.source === 'sample' ? 'disabled' : ''} data-tip="${p.source === 'upload' ? 'A fixture extraction would not describe your uploaded recording. Set OPENAI_API_KEY for real extraction, or start a fixture project.' : p.source === 'sample' ? 'Sample scenes are loaded directly from scenes/*.json — no extraction involved.' : 'Loads a pre-recorded (canned) model response for the bundled capture. Clearly labelled FIXTURE — no model call.'}">
           ${state.busy.extract === 'fixture' ? '<span class="spin"></span> Loading fixture…' : `${icon('sample')} Use fixture extraction <span class="tag tag-amber">fixture</span>`}
         </button>
       </div>
@@ -705,7 +705,7 @@ function renderSim() {
   } else {
     const url = api.previewUrl(p.id, v);
     key = `${tab}:${p.id}:${v}`;
-    html = `<img class="media-img ${tab === 'topdown' ? 'contain-pad' : ''}" src="${esc(url)}" alt="${tab === 'preview' ? 'Scene preview' : 'Top-down map'} v${v}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'media-empty',innerHTML:'<div class=&quot;me-title&quot;>Render unavailable</div><div class=&quot;muted&quot;>The server could not render this view.</div>'}))">`;
+    html = `<div class="media-loading"><span class="spin lg"></span>Rendering scene v${v} in MuJoCo…</div><img class="media-img ${tab === 'topdown' ? 'contain-pad' : ''}" onload="this.parentElement.classList.add('ready')" src="${esc(url)}" alt="${tab === 'preview' ? 'Scene preview' : 'Top-down map'} v${v}" onerror="this.parentElement.classList.add('ready');this.replaceWith(Object.assign(document.createElement('div'),{className:'media-empty',innerHTML:'<div class=&quot;me-title&quot;>Render unavailable</div><div class=&quot;muted&quot;>The server could not render this view.</div>'}))">`;
   }
   const media = $('#media');
   if (key !== mediaKey) {
@@ -949,6 +949,9 @@ function bindCorrection() {
   $('#correctForm').addEventListener('submit', (e) => {
     e.preventDefault();
     doCorrect($('#correctInput').value, 'text');
+  });
+  $('#correctInput').addEventListener('input', () => {
+    if (state.correctError) { state.correctError = null; renderCorrection(); }
   });
   $('#correctInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doCorrect($('#correctInput').value, 'text'); }

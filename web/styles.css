@@ -227,6 +227,11 @@ a { color: var(--accent); }
 }
 .media-content { position: absolute; inset: 0; display: grid; place-items: center; }
 .media-video, .media-img { width: 100%; height: 100%; object-fit: contain; display: block; background: #05080b; }
+.media-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--muted); font-size: 13px; }
+.media-content.ready .media-loading { display: none; }
+.media-content > .media-img { position: relative; background: transparent; }
+.media-content.ready > .media-img { background: #05080b; }
+.vid-link { display: inline-flex; color: var(--accent); }
 .media-img.dim { filter: saturate(0.4) brightness(0.45) blur(1px); }
 .media-img.contain-pad { padding: 10px; }
 .media-note { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(9, 13, 18, 0.85); border: 1px solid var(--border-2); padding: 5px 10px; border-radius: 6px; font-size: 12px; color: var(--text-2); display: flex; gap: 6px; align-items: center; white-space: nowrap; }
@@ -298,7 +303,7 @@ a { color: var(--accent); }
 .stale-note .ic { color: var(--amber); margin-top: 1px; }
 .check-list, .checks-empty { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .check-list.is-stale { opacity: 0.72; }
-.check { display: grid; grid-template-columns: 22px minmax(150px, auto) 1fr; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; min-height: 36px; }
+.check { display: grid; grid-template-columns: 22px 196px 1fr; gap: 10px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 13px; min-height: 36px; }
 .check:first-child { border-top: 0; }
 .cicon { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-3); color: var(--muted); }
 .cicon .ic { width: 12px; height: 12px; stroke-width: 2.6; }
@@ -308,7 +313,7 @@ a { color: var(--accent); }
 .check.skip .cicon { background: #2a3440; color: var(--muted); }
 .clabel { font-weight: 600; }
 .check.skip .clabel, .check.pending .clabel { color: var(--muted); }
-.cdetail { color: var(--text-2); font-size: 12.5px; font-family: var(--mono); text-align: right; }
+.cdetail { color: var(--text-2); font-size: 12.5px; line-height: 1.35; }
 .check.fail .cdetail { color: #ffb3ad; }
 .check.live { background: rgba(76, 194, 255, 0.06); }
 .check.live .clabel { color: var(--text); }

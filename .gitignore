@@ -9,3 +9,5 @@ data/
 recordings/
 *.mov
 *.MOV
+demo/raw/
+demo/build/

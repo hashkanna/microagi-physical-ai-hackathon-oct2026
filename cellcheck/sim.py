@@ -504,6 +504,7 @@ def _finish(res: Result, phys: Physics, scene: Scene, t0: float) -> Result:
         lifted = res.metrics.get("block_lifted_m", 0.0) > 0.03
         res.metrics.update({
             "block_final_table_frame": [round(float(p[0]), 3), round(float(p[1]), 3), round(float(p[2] - H), 3)],
+            "block_final": [round(float(p[0]), 3), round(float(p[1]), 3), round(float(p[2] - H), 3)],
             "block_max_speed_last_0_5s": round(max(speeds), 4),
             "sim_time_s": round(phys.t, 2),
         })
