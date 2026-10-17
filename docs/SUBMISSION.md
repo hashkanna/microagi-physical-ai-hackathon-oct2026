@@ -33,8 +33,8 @@ approximate, and the useful product is the loop around it: see what was assumed,
 
 **Honest limits:** This is an approximate workcell model, not an accurate reconstruction. It isn't training-ready, and
 it makes no sim-to-real claims. The checks cover this simulated task only, not safety certification. The gripper servo is
-stiffened 5× versus the Menagerie default (disclosed). Real-phone + live-vision validation: see README "What was not tested".
+stiffened 5× versus the Menagerie default (disclosed). Live vision extraction verified end to end on a synthetic capture (0.5–1.2 cm after table-size calibration); not yet measured on real phone footage.
 
 **Links (fill in at submission time):**
-- Repository: https://github.com/hashkanna/microagi-physical-ai-hackathon-oct2026 (currently private; make public to submit)
-- Demo video: `demo/cellcheck_demo.mp4` (upload to a public host, e.g. YouTube unlisted, Loom, or Drive "anyone with link")
+- Repository: https://github.com/hashkanna/microagi-physical-ai-hackathon-oct2026
+- Demo video: https://github.com/hashkanna/microagi-physical-ai-hackathon-oct2026/blob/claude/intelligent-mccarthy-047o06/demo/cellcheck_demo.mp4
