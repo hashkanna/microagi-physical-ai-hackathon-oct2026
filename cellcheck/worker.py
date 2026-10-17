@@ -26,10 +26,15 @@ def do_run(rid: str) -> None:
     t0 = time.time()
     store.update_run(rid, status="running", stage="compiling")
     try:
-        from .reach import suggest_fix
+        from .reach import reach_grid, suggest_fix
         from .sim import run_task
 
-        res = run_task(scene, fps=VIDEO_FPS, progress=lambda st: store.update_run(rid, stage=st))
+        store.update_run(rid, stage="mapping reach")
+        try:
+            reach = reach_grid(scene)
+        except Exception:
+            reach = None  # the overlay is cosmetic; never block a run on it
+        res = run_task(scene, fps=VIDEO_FPS, progress=lambda st: store.update_run(rid, stage=st), reach=reach)
         out = res.as_dict()
         if res.xml:
             (d / "scene.xml").write_text(res.xml)
@@ -65,8 +70,10 @@ def _short(res) -> str:
 def do_preview(scene_path: str, out_png: str, view: str = "hero") -> None:
     from .compiler import compile_scene
 
+    from .reach import reach_grid
+
     scene = Scene.model_validate(json.loads(Path(scene_path).read_text()))
-    xml = compile_scene(scene).xml
+    xml = compile_scene(scene, reach=reach_grid(scene)).xml
     render_still(xml, scene, Path(out_png), view=view, settle_s=0.3)
 
 

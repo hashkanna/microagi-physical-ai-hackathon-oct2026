@@ -138,7 +138,8 @@ def _panda_tree(meshdir: str, base_pos, base_quat) -> ET.Element:
     return root
 
 
-def compile_scene(scene: Scene, *, meshdir: str | None = None, robot_only: bool = False) -> Compiled:
+def compile_scene(scene: Scene, *, meshdir: str | None = None, robot_only: bool = False,
+                  reach: dict | None = None) -> Compiled:
     """Return MJCF text for a scene. `robot_only` builds the IK model (robot at the same base pose)."""
     warnings = precheck(scene)
     t = scene.table
@@ -201,6 +202,8 @@ def compile_scene(scene: Scene, *, meshdir: str | None = None, robot_only: bool 
         add(tb, "geom", name="edge_left", type="box", size=_f(0.004, t.depth / 2, 0.0005), rgba="1 0.6 0.1 1",
             pos=_f(-t.width / 2 + 0.004, 0, t.thickness / 2 + 0.0005), contype="0", conaffinity="0")
 
+        if reach:
+            _add_reach_overlay(add, reach, H)
         block_z = 0.0
         for o in scene.objects:
             if o.kind == "bin":
@@ -235,6 +238,27 @@ def compile_scene(scene: Scene, *, meshdir: str | None = None, robot_only: bool 
     ET.indent(root, space="  ")
     xml = ET.tostring(root, encoding="unicode")
     return Compiled(xml=xml, block_start_z=block_z, warnings=warnings)
+
+
+def _add_reach_overlay(add, reach: dict, H: float) -> None:
+    """Visual-only translucent tiles marking where a top-down grasp is reachable (no collision, no mass)."""
+    body = add(None, "body", name="reach_overlay", pos=_f(0, 0, H + 0.0025))  # above z-buffer precision
+    step = reach["step"]
+    for j, row in enumerate(reach["reachable"]):
+        i = 0
+        while i < len(row):
+            if not row[i]:
+                i += 1
+                continue
+            k = i
+            while k + 1 < len(row) and row[k + 1]:
+                k += 1
+            x0 = reach["x0"] + i * step - step / 2
+            x1 = reach["x0"] + k * step + step / 2
+            y = reach["y0"] + j * step
+            add(body, "geom", type="box", size=_f((x1 - x0) / 2, step / 2, 0.0004), pos=_f((x0 + x1) / 2, y, 0),
+                rgba="0.2 0.85 0.4 0.22", contype="0", conaffinity="0", mass="0", group="1")
+            i = k + 1
 
 
 def _add_bin(add, o: SceneObject, H: float) -> None:

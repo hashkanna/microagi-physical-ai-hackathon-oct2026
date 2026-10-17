@@ -352,7 +352,7 @@ class Physics:
                 self.max_force = max(self.max_force, fn)
 
 
-def run_task(scene: Scene, *, fps: int = 25, progress=None) -> Result:
+def run_task(scene: Scene, *, fps: int = 25, progress=None, reach: dict | None = None) -> Result:
     """Compile, settle, plan, execute and evaluate. Never raises for task failures."""
     res = Result(checks=new_checks())
     ck = res.checks
@@ -362,7 +362,7 @@ def run_task(scene: Scene, *, fps: int = 25, progress=None) -> Result:
     # 1. Compile
     say("compiling")
     try:
-        comp = compile_scene(scene)
+        comp = compile_scene(scene, reach=reach)
         phys = Physics(comp.xml, scene)
         res.xml = comp.xml
         ck["compiled"].status = "pass"

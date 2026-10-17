@@ -26,7 +26,20 @@ def _key(scene: Scene):
 
 
 def reach_grid(scene: Scene) -> dict:
-    return _reach_grid_cached(_key(scene), scene.model_dump_json())
+    """Reachability grid for this robot pose + table, cached in memory and on disk (it ignores objects)."""
+    import hashlib
+    import json
+
+    from .store import DATA
+
+    key = _key(scene)
+    path = DATA / "cache" / ("reach_" + hashlib.sha1(repr(key).encode()).hexdigest()[:16] + ".json")
+    if path.exists():
+        return json.loads(path.read_text())
+    grid = _reach_grid_cached(key, scene.model_dump_json())
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(grid))
+    return grid
 
 
 @lru_cache(maxsize=32)
