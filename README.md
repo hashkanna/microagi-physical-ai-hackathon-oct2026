@@ -120,6 +120,27 @@ pixels correctly. They do not measure real-world accuracy.
 * Grasp robustness was only checked for the cube sizes used here (4.5 cm). Conveyor motion, other robots,
   policy learning, deformables and LiDAR are out of scope.
 
+## Real-input test: a photo of an actual desk (live vision model)
+
+![Real desk photo processed by the live vision model](docs/img/real_photo_workspace.jpg)
+
+A real phone photo (two paper cups on a desk, plus a laptop, a snack bar and a juice cup) went through the live pipeline
+(`gpt-6.1-sol`, 27 s). The output is deliberately transparent:
+
+* Both paper cups were found as the two open containers (confidence 0.85/0.88). They are modelled as square open bins of
+  ~9.5 cm, since the MVP has box primitives only, and their sizes are tagged `inferred`.
+* The laptop, snack bar, juice cup and a partly visible container are listed but **not simulated**, each with an
+  "is it an obstacle?" warning.
+* **No table corners were visible**, so positions are the model's low-confidence metric guesses, and the scene says so.
+* **No block was in the photo**, so a clearly labelled **PLACEHOLDER** block was inserted with a warning. Nothing was
+  invented silently.
+* Running the task gives an informative failure. The block does land inside the cup, but the Panda's fingers hit the
+  cup rim at ~60 N on the way down: a paper cup's ~8 cm opening is too narrow for this gripper holding a 5 cm block.
+  It is reported as an *unexpected collision*, so the task fails.
+
+This is one photo, not the recommended 30–60 s video with all four corners visible, so the positions are not calibrated
+and no accuracy is claimed for it. Original photo: `docs/img/real_desk_photo.jpg`.
+
 ## Calibration and the workcell editor
 
 ![Corner marking on the overview frame](docs/img/calibration.jpg)
