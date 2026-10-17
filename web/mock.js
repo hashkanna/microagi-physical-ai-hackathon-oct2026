@@ -197,7 +197,25 @@ function seed() {
 }
 
 // ---------------------------------------------------------------- run simulation
-const STAGES = ['compiling', 'settling', 'planning', 'executing', 'rendering'];
+const STAGES = ['compiling', 'settling', 'planning', 'executing', 'uncertainty check', 'rendering'];
+
+function robustness(scene) {
+  const tgt = scene.objects.find((o) => o.id === scene.task.target_id);
+  const d = Math.hypot(tgt.x - scene.robot.x, tgt.y - scene.robot.y);
+  const failIdx = d > 0.55 ? 5 : -1; // near the reach edge → one perturbed variant fails
+  const jit = (i, k, a) => +((Math.sin(i * 12.9898 + k * 78.233) * 43758.5453 % 1) * a).toFixed(3);
+  const variants = Array.from({ length: 8 }, (_, i) => {
+    const offsets = {};
+    for (const o of scene.objects) {
+      const loose = ['inferred', 'default'].includes(o.provenance?.x);
+      offsets[o.id] = [jit(i, o.id.length, loose ? 0.03 : 0.005), jit(i + 3, o.id.length, loose ? 0.03 : 0.005), +(jit(i + 7, 1, loose ? 8 : 1)).toFixed(1)];
+    }
+    const fail = i === failIdx;
+    return { i, success: !fail, failed_check: fail ? 'reachable' : null, detail: fail ? `place approach above ${tgt.id} 1.8 cm beyond the reach envelope` : '', offsets };
+  });
+  const passed = variants.filter((v) => v.success).length;
+  return { n: 8, passed, failed: 8 - passed, invalid: 0, rule: 'inferred/default positions jittered ±3 cm and yaw ±8°; measured/confirmed ±0.5 cm', verdict: passed === 8 ? 'robust' : 'sensitive', variants };
+}
 
 function evaluate(scene) {
   const blk = scene.objects.find((o) => o.id === scene.task.object_id);
@@ -252,6 +270,7 @@ function finishRun(r, p) {
   Object.assign(r, {
     status: 'done', stage: 'done', elapsed_s: +(12 + Math.random() * 5).toFixed(1),
     checks: ev.checks, success: ev.success, failure_reason: ev.failure_reason, suggestion: ev.suggestion,
+    robustness: ev.success ? robustness(scene) : null,
     video_url: null, poster_url: previewUrl(p.id, r.version),
     metrics: { sim_time_s: ev.success ? 9.5 : 3.2, block_final: ev.block_final.map((v) => +v.toFixed(3)), max_contact_force: ev.success ? 11.8 : 0, ...(ev.halted ? { halted_before_stage: ev.halted } : {}) },
     evidence_url: `/api/runs/${r.id}/bundle.zip`,

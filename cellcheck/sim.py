@@ -23,6 +23,7 @@ ARM_JOINTS = [f"joint{i}" for i in range(1, 8)]
 GRIP_OPEN, GRIP_CLOSED = 255.0, 0.0
 CTRL_DT = 0.02  # controller tick (50 Hz); physics runs at 500 Hz underneath
 POS_TOL = 0.006  # m, IK position tolerance for a waypoint to count as reachable
+HAND_BELOW_TCP = 0.033  # m, underside of the Panda hand housing above the TCP (from the collision mesh AABB)
 ORI_TOL = 0.08  # rad
 
 STAGES = ["approach", "descend", "close gripper", "lift", "transfer", "descend to bin", "open gripper", "retreat", "observe"]
@@ -196,8 +197,10 @@ def plan_task(scene: Scene, planner: Planner) -> tuple[list[Segment], list[dict]
     R_pick = grasp_rotation(block.yaw_deg, scene.robot.yaw_deg)
     R_place = grasp_rotation(target.yaw_deg, scene.robot.yaw_deg)
     grasp_z = block_c[2] + min(0.01, block.size[2] * 0.2)
-    # release with the block's bottom ~2 cm above the bin floor, i.e. below the rim
-    place_z = H + target.wall_thickness + block.size[2] / 2 + 0.02 + (grasp_z - block_c[2])
+    # Release low enough that the block ends below the rim, but keep the hand housing (its underside is
+    # HAND_BELOW_TCP above the TCP, and it is ~20 cm long) at least 3 cm above the rim.
+    place_z = max(H + target.wall_thickness + block.size[2] / 2 + 0.02 + (grasp_z - block_c[2]),
+                  H + target.size[2] + 0.03 - HAND_BELOW_TCP)
     pre_pick = np.array([block.x, block.y, safe_z])
     pre_place = np.array([target.x, target.y, safe_z])
 

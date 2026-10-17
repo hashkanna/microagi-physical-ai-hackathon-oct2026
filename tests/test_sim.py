@@ -78,3 +78,11 @@ def test_results_are_plain_json():
     out = json.loads(json.dumps(res.as_dict()))
     assert out["success"] is False
     assert all(isinstance(w["reachable"], bool) for w in out["waypoints"])
+
+
+def test_uncertainty_check_is_robust_on_baseline():
+    from cellcheck.robust import check_robustness
+
+    rb = check_robustness(load("baseline"), n=4)
+    assert rb["n"] == 4 and rb["invalid"] == 0
+    assert rb["passed"] == 4 and rb["verdict"] == "robust"

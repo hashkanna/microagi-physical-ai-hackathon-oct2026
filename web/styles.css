@@ -272,7 +272,7 @@ a { color: var(--accent); }
 .stepper li.active { color: var(--text); }
 .stepper li.active .sdot { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(76, 194, 255, 0.2); animation: ring 1.2s infinite; }
 @keyframes ring { 50% { box-shadow: 0 0 0 7px rgba(76, 194, 255, 0.05); } }
-.stepper.compact li { width: 74px; font-size: 10.5px; }
+.stepper.compact li { width: 64px; font-size: 10.5px; }
 .stepper.compact .sdot { width: 16px; height: 16px; }
 .stepper.compact li::before { top: 7px; }
 
@@ -317,6 +317,24 @@ a { color: var(--accent); }
 .check.fail .cdetail { color: #ffb3ad; }
 .check.live { background: rgba(76, 194, 255, 0.06); }
 .check.live .clabel { color: var(--text); }
+.robust { margin-top: 12px; border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; background: var(--bg-2); }
+.robust.ok { border-color: rgba(63, 185, 80, 0.35); }
+.robust.warn { border-color: rgba(240, 180, 41, 0.45); background: rgba(240, 180, 41, 0.05); }
+.robust.running { border-color: rgba(76, 194, 255, 0.35); }
+.rb-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.rb-line { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.rb-score { font-weight: 800; font-size: 15px; }
+.robust.ok .rb-score { color: #7ee787; }
+.robust.warn .rb-score { color: #ffd27a; }
+.rb-dots { display: flex; gap: 5px; }
+.rb-dot { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; cursor: help; }
+.rb-dot .ic { width: 11px; height: 11px; stroke-width: 2.8; }
+.rb-dot.pass { background: var(--green); color: #06280f; }
+.rb-dot.fail { background: var(--red); color: #2d0705; }
+.rb-dot.invalid { background: #2a3440; color: var(--muted); }
+.rb-dots [data-tip]:hover::after { left: auto; right: -8px; transform: none; top: auto; bottom: calc(100% + 8px); font-family: var(--mono); font-size: 11.5px; }
+.rb-rule { color: var(--muted); margin-top: 6px; font-family: var(--mono); font-size: 11.5px; }
+.rb-expl { color: var(--text-2); margin-top: 4px; }
 .run-metrics { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 12px; font-size: 12px; }
 .run-metrics > div { display: flex; flex-direction: column; }
 .run-metrics span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }

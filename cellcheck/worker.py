@@ -41,9 +41,19 @@ def do_run(rid: str) -> None:
         if any(c["id"] == "reachable" and c["status"] == "fail" for c in out["checks"]):
             store.update_run(rid, stage="searching for a fix")
             out["suggestion"] = suggest_fix(scene, out["waypoints"])
+        out["robustness"] = None
+        if res.success:
+            store.update_run(rid, stage="uncertainty check", checks=out["checks"], success=out["success"],
+                             metrics=out["metrics"])
+            from .robust import check_robustness
+
+            try:
+                out["robustness"] = check_robustness(scene, n=8)
+            except Exception as e:  # a sensitivity analysis failure must not hide the nominal result
+                out["robustness"] = {"error": str(e)}
         store.write_json(d / "results.json", out)
         update = dict(checks=out["checks"], success=out["success"], failure_reason=out["failure_reason"],
-                      suggestion=out["suggestion"], metrics=out["metrics"])
+                      suggestion=out["suggestion"], metrics=out["metrics"], robustness=out["robustness"])
         store.update_run(rid, stage="rendering", **update)
         if res.frames_qpos:
             verdict = ("PLACEMENT SUCCEEDED" if res.success else "TASK FAILED: " + _short(res), res.success)

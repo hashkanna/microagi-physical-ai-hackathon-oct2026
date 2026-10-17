@@ -10,8 +10,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
 const num = (v, d = 3) => (v == null || Number.isNaN(+v) ? '—' : (+v).toFixed(d));
 const errMsg = (e) => e?.detail || e?.message || String(e);
-const STAGES = ['compiling', 'settling', 'planning', 'executing', 'rendering'];
-const STAGE_LABEL = { compiling: 'Compiling MJCF', settling: 'Settling physics', planning: 'Planning motion', executing: 'Executing pick & place', rendering: 'Rendering video' };
+const STAGES = ['compiling', 'settling', 'planning', 'executing', 'uncertainty check', 'rendering'];
+const STAGE_LABEL = { compiling: 'Compiling MJCF', settling: 'Settling physics', planning: 'Planning motion', executing: 'Executing pick & place', 'uncertainty check': 'Uncertainty check (perturbed re-runs)', rendering: 'Rendering video' };
+const STAGE_SHORT = { 'uncertainty check': 'uncertainty' };
 const STAGE_CHECK = { compiling: 'compiled', settling: 'settled', planning: 'reachable', executing: 'collisions', rendering: 'placement' };
 const DEFAULT_CHECKS = [
   { id: 'compiled', label: 'Scene compiled' },
@@ -766,7 +767,7 @@ function stageIndex(run) {
 
 function stageStepper(run, compact = false) {
   const idx = stageIndex(run);
-  return `<ol class="stepper ${compact ? 'compact' : ''}">${STAGES.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'active' : ''}"><span class="sdot">${i < idx ? icon('check') : ''}</span><span class="slabel">${s}</span></li>`).join('')}</ol>`;
+  return `<ol class="stepper ${compact ? 'compact' : ''}">${STAGES.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'active' : ''}"><span class="sdot">${i < idx ? icon('check') : ''}</span><span class="slabel">${STAGE_SHORT[s] || s}</span></li>`).join('')}</ol>`;
 }
 
 function bindSim() {
@@ -843,7 +844,7 @@ function renderChecks() {
         <button class="btn btn-primary btn-sm" id="applySuggestion" ${state.busy.correct || isReadOnly() || !run.suggestion.patch ? 'disabled' : ''}>${state.busy.correct === 'suggestion' ? '<span class="spin"></span>' : icon('suggestion')} Apply as new version</button>
         <span class="muted small">${!run.suggestion.patch ? 'No machine-applicable patch — use the correction box.' : stale ? `Computed for v${run.version} — will be applied to v${p.current_version}.` : 'Creates a new version; nothing changes until you apply it.'}</span>
       </div>`}</div>` : '';
-  el.innerHTML = `${head}${verdict}${sug}${staleNote}<div class="check-list ${stale && !running ? 'is-stale' : ''}">${list}</div>${metrics}${disclaimer}`;
+  el.innerHTML = `${head}${verdict}${sug}${staleNote}<div class="check-list ${stale && !running ? 'is-stale' : ''}">${list}</div>${robustnessPanel(run)}${metrics}${disclaimer}`;
 }
 
 const appliedSuggestions = {}; // run id -> version
@@ -851,6 +852,36 @@ function suggestionAppliedIn(run) {
   if (appliedSuggestions[run.id]) return appliedSuggestions[run.id];
   const v = (state.project?.versions || []).find((x) => x.origin === 'suggestion' && x.version > run.version && x.summary && x.summary.includes(run.suggestion.text));
   return v ? v.version : null;
+}
+
+function robustnessPanel(run) {
+  const rb = run.robustness;
+  if (!rb) {
+    if (isRunning(run) && run.stage === 'uncertainty check') {
+      return `<div class="robust running"><div class="rb-head"><span class="spin sm"></span><b>Uncertainty check</b><span class="muted small">re-running the physics with inferred values perturbed…</span></div></div>`;
+    }
+    return '';
+  }
+  const n = rb.n ?? (rb.variants || []).length;
+  const passed = rb.passed ?? (rb.variants || []).filter((v) => v.success).length;
+  const allPass = rb.verdict ? rb.verdict === 'robust' : passed === n;
+  const sgn = (v, d = 1) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`;
+  const tip = (v) => {
+    const head = v.success === true ? `Variant ${v.i + 1}: pass` : v.success === false ? `Variant ${v.i + 1}: FAIL${v.failed_check ? ` (${v.failed_check})` : ''}` : `Variant ${v.i + 1}: invalid`;
+    const offs = Object.entries(v.offsets || {}).map(([id, o]) => `${id}: x ${sgn(o[0] * 100)} cm, y ${sgn(o[1] * 100)} cm, yaw ${sgn(o[2] ?? 0)}°`);
+    return [head, v.detail || '', ...offs].filter(Boolean).join('\n');
+  };
+  const dots = (rb.variants || []).map((v) => {
+    const cls = v.success === true ? 'pass' : v.success === false ? 'fail' : 'invalid';
+    return `<span class="rb-dot ${cls}" data-tip="${esc(tip(v))}">${icon(cls === 'pass' ? 'check' : cls === 'fail' ? 'x' : 'dash')}</span>`;
+  }).join('');
+  return `<div class="robust ${allPass ? 'ok' : 'warn'}">
+    <div class="rb-head"><b>Uncertainty check</b><span class="tag ${allPass ? 'tag-green' : 'tag-amber'}">${esc(rb.verdict || (allPass ? 'robust' : 'sensitive'))}</span></div>
+    <div class="rb-line"><span class="rb-score">${passed} / ${n} perturbed variants pass</span><span class="rb-dots">${dots}</span></div>
+    ${rb.invalid ? `<div class="muted small">${rb.invalid} variant${rb.invalid > 1 ? 's' : ''} invalid (perturbation produced an impossible scene) — not counted as pass or fail.</div>` : ''}
+    ${rb.rule ? `<div class="rb-rule small">${esc(rb.rule)}</div>` : ''}
+    <div class="rb-expl small">Inferred values are estimates, so CellCheck re-runs the physics with them perturbed. This is a sensitivity check, not a guarantee.</div>
+  </div>`;
 }
 
 async function applySuggestion() {

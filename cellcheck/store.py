@@ -124,7 +124,7 @@ def create_run(pid: str, version: int) -> dict:
     rid = new_id("r")
     run = {"id": rid, "project_id": pid, "version": version, "status": "queued", "stage": "queued",
            "created_at": now(), "elapsed_s": None, "checks": [], "success": None, "failure_reason": None,
-           "suggestion": None, "metrics": {}, "video_url": None, "poster_url": None}
+           "suggestion": None, "robustness": None, "metrics": {}, "video_url": None, "poster_url": None}
     d = run_dir(rid)
     d.mkdir(parents=True, exist_ok=True)
     write_json(d / "scene.json", load_scene(pid, version).model_dump(mode="json"))

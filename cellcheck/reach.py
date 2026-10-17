@@ -84,10 +84,16 @@ def suggest_fix(scene: Scene, waypoints: list[dict]) -> dict | None:
     oid = scene.task.target_id if any(w["stage"] in place_stages for w in bad) else scene.task.object_id
     obj = scene.obj(oid)
     g = reach_grid(scene)
+    R = g["reachable"]
+    ny, nx = len(R), len(R[0])
+
+    def margin_ok(j, i):  # all 8 neighbours reachable too: >= one grid step (5 cm) of reach margin
+        return all(0 <= j + a < ny and 0 <= i + b < nx and R[j + a][i + b] for a in (-1, 0, 1) for b in (-1, 0, 1))
+
     cands = []
-    for j, row in enumerate(g["reachable"]):
+    for j, row in enumerate(R):
         for i, ok in enumerate(row):
-            if ok:
+            if ok and margin_ok(j, i):
                 x, y = g["x0"] + i * g["step"], g["y0"] + j * g["step"]
                 cands.append((math.hypot(x - obj.x, y - obj.y), x, y))
     cands.sort()
@@ -117,7 +123,8 @@ def suggest_fix(scene: Scene, waypoints: list[dict]) -> dict | None:
             patch = Patch(ops=[PatchOp(target=oid, field="x", value=o.x), PatchOp(target=oid, field="y", value=o.y)],
                           summary=text)
             return {"text": text, "patch": patch.model_dump(), "object_id": oid,
-                    "moved_m": round(math.hypot(dx, dy), 3), "verified": "IK plan reachable for all 6 motion targets"}
+                    "moved_m": round(math.hypot(dx, dy), 3),
+                    "verified": "IK plan reachable for all 6 motion targets, with ≥5 cm reach margin"}
         if tried > 25:
             break
     return {"text": f"No reachable placement for {oid} found on this table; consider moving the robot base.",
