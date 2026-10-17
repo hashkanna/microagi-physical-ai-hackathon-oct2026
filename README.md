@@ -85,12 +85,15 @@ tabletop; **+x → right edge**, **+y → back edge**, **+z up**. Metres; sizes 
 | Baseline, alternate (side-mounted robot, block starting in a tray, rotated tote) | both pass all 5 checks |
 | Unreachable layout | fails `reachable`; execution halts before the transfer; a suggestion is produced |
 | Random target-bin placements inside the reach map (36 runs, random yaw; `scripts/sweep_layouts.py`) | 35/36 succeed. The 1 failure is a real hand–bin-wall collision (bin placed against the block), correctly flagged |
-| Calibration on the synthetic capture (model-guessed pixels with ~6 px noise) | object position error **4–14 cm** from the model's metric guess alone → **0.2–2.7 cm** after 4-corner + measured-size calibration |
+| **Live vision model** (`gpt-6.1-sol`, OpenAI structured outputs) on the synthetic capture video, through the real upload path (`scripts/eval_vision.py`) | upload + FFmpeg sampling 5.5 s (10 frames); extraction 39 s; **total generation 44.6 s**. The model found all 3 objects, labelled them correctly, and picked the right target. Its table corners were within ~30 px. Sizes were close (cube 4.0 vs 4.5 cm; blue tray exactly 20×16 cm), heights were underestimated (4 vs 6 cm, 5 vs 8 cm), and it guessed the table as 1.2 m wide (true 1.4) |
+| Position error of that live extraction vs ground truth | **5–14 cm** from the model alone → **0.5–1.2 cm** after entering the measured table size (using the model's own corner estimates, no clicking). The resulting scene passes the task (8/8 uncertainty variants) |
+| LLM-parsed correction (free-form text the rules don't match) | *"the grey tray sits a hand's width closer to me than you think, maybe 8 cm"* → patch `bin_b.y −0.08` (toward the front/camera edge) in 3.9 s, validated, new version, rerun passes |
+| Calibration on the synthetic capture (canned fixture pixels with ~6 px noise) | object position error **4–14 cm** from the model's metric guess alone → **0.2–2.7 cm** after 4-corner + measured-size calibration |
 | Demo story (capture → calibrate → run → move robot → unreachable → accept suggestion → run) | 4 scene versions, 3 manual corrections (calibration, typed correction, accepted suggestion), 13–25 s per run on a 4-core CPU (physics + IK ≈ 1–2 s; the rest is MP4 rendering) |
 | Fresh `git clone` → `./run.sh` → `scripts/demo_story.py` | installs pinned deps, auto-selects EGL, and the full story passes |
 | Uncertainty check (8 perturbed variants) | baseline, alternate, and demo-story v2/v4 are all 8/8 robust (≈3 s for 8 physics rollouts on 4 cores) |
 | What the uncertainty check caught in our own controller | its first run flagged the suggested fix as **sensitive (6/8)**: the 20 cm hand housing cleared the tote rim by only 1.25 cm at release, so a few cm of pose error made it clip the wall. We raised the release height to keep 3 cm clearance and required ≥5 cm reach margin for suggestions, after which all were 8/8 |
-| Test suite | 66 passed, 1 skipped (live OpenAI call; no key in the build environment) |
+| Test suite | 67 passed, including the live OpenAI test when `OPENAI_API_KEY` is set (it skips otherwise) |
 
 The calibration figures come from a *synthetic* render with simulated pixel noise. They show that the pipeline maps
 pixels correctly. They do not measure real-world accuracy.
@@ -111,9 +114,9 @@ pixels correctly. They do not measure real-world accuracy.
 
 ## What was not tested
 
-* **No real phone recording was processed during the build**, and **no live vision-API call was made** (no key in
-  the build environment). The real path (upload → FFmpeg sampling → OpenAI structured output → validated scene)
-  is implemented and unit-tested with mocks and a synthetic video. Real-capture validation remains open.
+* The live vision path (upload → FFmpeg sampling → OpenAI structured output → validated scene) **was run end-to-end with
+  a live model, but on a synthetic (MuJoCo-rendered) capture**. Accuracy on real phone footage (lighting, clutter,
+  lens distortion, occluded corners) has **not** been measured yet.
 * Grasp robustness was only checked for the cube sizes used here (4.5 cm). Conveyor motion, other robots,
   policy learning, deformables and LiDAR are out of scope.
 
