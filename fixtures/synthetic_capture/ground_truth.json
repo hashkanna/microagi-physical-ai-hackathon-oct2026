@@ -1,0 +1,142 @@
+{
+  "scene": {
+    "schema_version": "cellcheck.scene/v1",
+    "name": "synthetic_bench",
+    "notes": [
+      "Ground truth for the synthetic capture."
+    ],
+    "table": {
+      "width": 1.4,
+      "depth": 0.7,
+      "height": 0.75,
+      "thickness": 0.04,
+      "friction": 0.8,
+      "provenance": {
+        "width": "default",
+        "depth": "default",
+        "height": "default"
+      }
+    },
+    "robot": {
+      "model": "franka_panda",
+      "x": 0.7,
+      "y": 0.6,
+      "yaw_deg": -90.0,
+      "provenance": {
+        "x": "default",
+        "y": "default",
+        "yaw_deg": "default"
+      }
+    },
+    "objects": [
+      {
+        "id": "block_1",
+        "kind": "block",
+        "label": "red cube",
+        "x": 0.55,
+        "y": 0.24,
+        "yaw_deg": 18.0,
+        "size": [
+          0.045,
+          0.045,
+          0.045
+        ],
+        "mass": 0.1,
+        "friction": 1.0,
+        "wall_thickness": null,
+        "color": [
+          0.85,
+          0.15,
+          0.12
+        ],
+        "provenance": {
+          "mass": "default",
+          "friction": "default",
+          "x": "default",
+          "y": "default",
+          "yaw_deg": "default",
+          "size": "default"
+        }
+      },
+      {
+        "id": "bin_a",
+        "kind": "bin",
+        "label": "blue tray",
+        "x": 0.28,
+        "y": 0.32,
+        "yaw_deg": 0.0,
+        "size": [
+          0.2,
+          0.16,
+          0.06
+        ],
+        "mass": null,
+        "friction": null,
+        "wall_thickness": 0.008,
+        "color": [
+          0.18,
+          0.4,
+          0.85
+        ],
+        "provenance": {
+          "wall_thickness": "default",
+          "x": "default",
+          "y": "default",
+          "yaw_deg": "default",
+          "size": "default"
+        }
+      },
+      {
+        "id": "bin_b",
+        "kind": "bin",
+        "label": "grey tote",
+        "x": 1.05,
+        "y": 0.3,
+        "yaw_deg": -8.0,
+        "size": [
+          0.22,
+          0.18,
+          0.08
+        ],
+        "mass": null,
+        "friction": null,
+        "wall_thickness": 0.008,
+        "color": [
+          0.55,
+          0.57,
+          0.6
+        ],
+        "provenance": {
+          "wall_thickness": "default",
+          "x": "default",
+          "y": "default",
+          "yaw_deg": "default",
+          "size": "default"
+        }
+      }
+    ],
+    "task": {
+      "type": "pick_and_place",
+      "object_id": "block_1",
+      "target_id": "bin_b"
+    }
+  },
+  "true_corners_px_frame0": {
+    "front_left": [
+      262.37596445699717,
+      512.3305679720348
+    ],
+    "front_right": [
+      1017.6240355430028,
+      512.3305679720348
+    ],
+    "back_right": [
+      906.5918356286812,
+      295.1301660943975
+    ],
+    "back_left": [
+      373.4081643713188,
+      295.13016609439745
+    ]
+  }
+}

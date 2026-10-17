@@ -42,11 +42,7 @@
     <section class="col col-capture" id="colCapture"></section>
     <section class="col col-sim">
       <div class="panel sim-panel">
-        <div class="panel-head">
-          <h2><span class="step">2</span>Simulation</h2>
-          <div class="run-picker" id="runPicker"></div>
-        </div>
-        <div class="media-tabs" id="mediaTabs"></div>
+        <div class="media-tabs"><span class="step" title="Simulation">2</span><div class="tabs-inner" id="mediaTabs"></div></div>
         <div class="media" id="media"></div>
         <div class="runbar" id="runbar"></div>
       </div>
@@ -59,10 +55,12 @@
           <span class="muted small" id="parserHint"></span>
         </div>
         <form class="correct-form" id="correctForm" autocomplete="off">
-          <input id="correctInput" type="text" placeholder="e.g. Move the target bin 20 cm toward the table's left edge" aria-label="Scene correction">
-          <button class="btn btn-primary" id="correctBtn" type="submit">Apply</button>
+          <textarea id="correctInput" rows="2" placeholder="e.g. Move the target bin 20 cm toward the table's left edge" aria-label="Scene correction"></textarea>
+          <div class="correct-row">
+            <div class="examples" id="examples"></div>
+            <button class="btn btn-primary" id="correctBtn" type="submit">Apply</button>
+          </div>
         </form>
-        <div class="examples" id="examples"></div>
         <div id="correctResult"></div>
       </div>
       <div class="panel cell-panel" id="cellPanel"></div>

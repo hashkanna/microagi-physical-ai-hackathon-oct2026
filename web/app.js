@@ -28,8 +28,8 @@ const PROV = {
 };
 const ORIGIN_LABEL = { sample: 'Sample', extraction: 'Extraction', edit: 'Manual edit', correction: 'Language correction', calibration: 'Calibration', suggestion: 'Applied suggestion' };
 const EXAMPLES = [
-  "Move the target bin 20 cm toward the table's left edge",
-  'Rotate the block 45 degrees',
+  'Move the target bin 20 cm toward the left edge',
+  'Rotate the block 45°',
   'The table is 120 cm wide',
 ];
 
@@ -90,6 +90,9 @@ function setUrlProject(pid) {
 
 function setProject(p, { selectRun = null } = {}) {
   const changedProject = !state.project || state.project.id !== p.id;
+  if (!changedProject && p.current_version !== state.project.current_version) {
+    requestAnimationFrame(() => document.querySelector('.col-sim')?.scrollTo({ top: 0, behavior: 'smooth' }));
+  }
   state.project = p;
   state.viewVersion = p.current_version;
   state.viewScene = p.scene || null;
@@ -190,6 +193,7 @@ async function runTask() {
       state.project.runs = [...(state.project.runs || []), s];
       state.selectedRunId = s.id;
       state.mediaTab = 'playback';
+      document.querySelector('.col-sim')?.scrollTo({ top: 0, behavior: 'smooth' });
       pollRun(s.id);
     } catch (e) {
       toast(`Could not start run: ${esc(errMsg(e))}`, 'err');
@@ -238,14 +242,14 @@ function currentMapScene() {
   return state.draft || state.viewScene;
 }
 
-function mapSvg(px, draggable) {
+function mapSvg(px, draggable, fitH) {
   const scene = currentMapScene();
   if (!scene) return '';
   const p = state.project;
   const robotEdited = [...state.edits].some((e) => e.startsWith('robot.') || e.startsWith('table.'));
   const reach = robotEdited ? null : state.reach[`${p.id}:${state.viewVersion}`];
   const changed = new Set([...state.edits].filter((e) => e.startsWith('obj.')).map((e) => e.split('.')[1]));
-  return renderTopdown(scene, { px, reach, ghost: state.edits.size ? state.viewScene : null, changed, draggable: draggable && !isReadOnly() });
+  return renderTopdown(scene, { px, fitH, reach, ghost: state.edits.size ? state.viewScene : null, changed, draggable: draggable && !isReadOnly() });
 }
 
 function reachCaption() {
@@ -357,7 +361,7 @@ function renderTimeline() {
   const rb = $('#readonlyBanner');
   if (isReadOnly()) {
     rb.classList.remove('hidden');
-    rb.innerHTML = `${icon('lock')} Viewing <b>v${state.viewVersion}</b> read-only — current version is <b>v${p.current_version}</b>. Edits and corrections always apply to the current version.
+    rb.innerHTML = `${icon('lock')}<span>Viewing <b>v${state.viewVersion}</b> read-only — current version is <b>v${p.current_version}</b>. Edits and corrections always apply to the current version.</span>
       <button class="btn btn-sm" id="backToCurrent">${icon('back')} Back to v${p.current_version}</button>`;
   } else rb.classList.add('hidden');
 }
@@ -499,8 +503,8 @@ function renderCapture() {
       <div class="panel-head"><h3>${icon('ruler')} Calibration</h3>${p.calibration ? '<span class="tag tag-blue">saved</span>' : '<span class="tag">optional</span>'}</div>
       <p class="muted small">Measure the tabletop with a tape. Measured values override the model's guess and are tagged <span class="prov prov-measured">measured</span>.</p>
       <div class="calib-grid">
-        <label class="fld-lg"><span>Width (left → right)</span><input id="calW" type="number" min="0" step="0.5" value="${esc(c.width)}" placeholder="${c.unit === 'cm' ? '100' : '1.00'}"></label>
-        <label class="fld-lg"><span>Depth (front → back)</span><input id="calD" type="number" min="0" step="0.5" value="${esc(c.depth)}" placeholder="${c.unit === 'cm' ? '70' : '0.70'}"></label>
+        <label class="fld-lg"><span>Width <i>left→right</i></span><input id="calW" type="number" min="0" step="0.5" value="${esc(c.width)}" placeholder="${c.unit === 'cm' ? '100' : '1.00'}"></label>
+        <label class="fld-lg"><span>Depth <i>front→back</i></span><input id="calD" type="number" min="0" step="0.5" value="${esc(c.depth)}" placeholder="${c.unit === 'cm' ? '70' : '0.70'}"></label>
         <div class="seg" id="calUnit"><button class="${c.unit === 'cm' ? 'on' : ''}" data-unit="cm">cm</button><button class="${c.unit === 'm' ? 'on' : ''}" data-unit="m">m</button></div>
       </div>
       <div class="calib-hint small ${dimsOk || (!c.width && !c.depth) ? 'muted' : 'err-text'}" id="calHint">${dimsOk ? `= ${dims.width.toFixed(3)} m × ${dims.depth.toFixed(3)} m` : c.width || c.depth ? 'Each side must be between 0.2 m and 3 m.' : 'Enter both sides.'}</div>
@@ -635,16 +639,10 @@ function renderSim() {
   const v = state.viewVersion;
   const hasScene = !!v;
 
-  // run picker (newest first)
-  const runs = runSummaries().slice().reverse().slice(0, 6);
-  $('#runPicker').innerHTML = runs.length ? `<span class="muted small">Runs</span>${runs.map((r) => {
-    const full = state.runs[r.id] || r;
-    const st = isRunning(full) ? 'run' : full.status === 'error' ? 'fail' : full.success === true ? 'pass' : full.success === false ? 'fail' : '';
-    return `<button class="rchip ${r.id === state.selectedRunId ? 'sel' : ''}" data-run="${esc(r.id)}" data-tip="Run ${esc(r.id)} on scene v${r.version}${r.version !== p.current_version ? ' (stale)' : ''}"><span class="vdot ${st}"></span>v${r.version}<span class="mono muted">${esc(r.id.replace(/^r_/, ''))}</span></button>`;
-  }).join('')}` : '';
 
   // tabs
   const tabs = [['playback', 'film', 'Run playback'], ['preview', 'image', 'Scene preview'], ['topdown', 'map', 'Top-down map']];
+  const mediaEl = $('#media');
   $('#mediaTabs').innerHTML = tabs.map(([id, ic, label]) => `<button class="tab ${state.mediaTab === id ? 'on' : ''}" data-tab="${id}">${icon(ic)}${label}${id !== 'playback' && v ? ` <span class="muted">v${v}</span>` : ''}</button>`).join('');
 
   // media content
@@ -675,7 +673,7 @@ function renderSim() {
     const rk = state.reach[`${p.id}:${v}`];
     key = `topdown:${p.id}:${v}:${state.draftRev}:${rk ? 'g' : rk === null ? 'n' : 'u'}:${isReadOnly()}`;
     html = scn
-      ? `<div class="tab-map" id="tabMap">${mapSvg(900, true)}</div><div class="map-legend small">${reachCaption()}${isReadOnly() ? '' : ` · ${icon('edit')} drag a bin or the block to move it (saves a new version)`}</div>`
+      ? `<div class="tab-map" id="tabMap">${mapSvg(Math.max(300, mediaEl.clientWidth - 32), true, Math.max(200, mediaEl.clientHeight - 84))}</div><div class="map-legend small">${reachCaption()}${isReadOnly() ? '' : ` · ${icon('edit')} drag a bin or the block to move it`}</div>`
       : `<img class="media-img contain-pad" src="${esc(api.topdownUrl(p.id, v))}" alt="Top-down map v${v}">`;
   } else {
     const url = api.previewUrl(p.id, v);
@@ -720,7 +718,7 @@ function renderSim() {
       ${busy ? '<span class="spin"></span> Simulating…' : `${icon('play')} Run task on v${p.current_version || '—'}`}</button>
     <div class="runbar-info">
       ${busy && run && isRunning(run) ? stageStepper(run, true) : p.current_version ? `<div class="task-line">${taskLine(p.scene)}</div>
-      <div class="muted small">${curRuns.length ? `v${p.current_version} has ${curRuns.length} run${curRuns.length > 1 ? 's' : ''}` : `v${p.current_version} has not been run yet`} · Franka Panda · scripted pick-and-place · MuJoCo</div>` : '<div class="muted">Build a scene first.</div>'}
+      <div class="muted small">${curRuns.length ? `v${p.current_version} has ${curRuns.length} run${curRuns.length > 1 ? 's' : ''}` : `<span class="amber-text">v${p.current_version} has not been run yet</span>`} · Franka Panda · MuJoCo</div>` : '<div class="muted">Build a scene first.</div>'}
     </div>`;
 }
 
@@ -728,12 +726,12 @@ function taskLine(scene) {
   if (!scene?.task) return '';
   const o = scene.objects.find((x) => x.id === scene.task.object_id);
   const t = scene.objects.find((x) => x.id === scene.task.target_id);
-  return `<span class="muted">Task</span> Pick <b class="obj">${esc(scene.task.object_id)}</b>${o?.label ? ` <span class="muted">(${esc(o.label)})</span>` : ''} ${icon('arrowRight')} place in <b class="obj tgt">${esc(scene.task.target_id)}</b>${t?.label ? ` <span class="muted">(${esc(t.label)})</span>` : ''}`;
+  return `<span class="muted">Task</span> Pick <b class="obj" title="${esc(o?.label || '')}">${esc(scene.task.object_id)}</b> ${icon('arrowRight')} place in <b class="obj tgt" title="${esc(t?.label || '')}">${esc(scene.task.target_id)}</b>`;
 }
 
 function stageStepper(run, compact = false) {
   const idx = run.status === 'queued' ? -1 : STAGES.indexOf(run.stage);
-  return `<ol class="stepper ${compact ? 'compact' : ''}">${STAGES.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'active' : ''}"><span class="sdot">${i < idx ? icon('check') : ''}</span><span class="slabel">${compact ? s : STAGE_LABEL[s]}</span></li>`).join('')}</ol>`;
+  return `<ol class="stepper ${compact ? 'compact' : ''}">${STAGES.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'active' : ''}"><span class="sdot">${i < idx ? icon('check') : ''}</span><span class="slabel">${s}</span></li>`).join('')}</ol>`;
 }
 
 function bindSim() {
@@ -748,12 +746,23 @@ function bindSim() {
 }
 
 // ------------------------------------------------------------------ checks panel
+function runPicker() {
+  const p = state.project;
+  const runs = runSummaries().slice().reverse().slice(0, 5);
+  if (!runs.length) return '';
+  return `<div class="run-picker"><span class="muted small">Runs</span>${runs.map((r) => {
+    const full = state.runs[r.id] || r;
+    const st = isRunning(full) ? 'run' : full.status === 'error' ? 'fail' : full.success === true ? 'pass' : full.success === false ? 'fail' : '';
+    return `<button class="rchip ${r.id === state.selectedRunId ? 'sel' : ''}" data-run="${esc(r.id)}" data-tip="Run ${esc(r.id)} on scene v${r.version}${r.version !== p.current_version ? ' (stale)' : ''}"><span class="vdot ${st}"></span>v${r.version}<span class="mono muted">${esc(r.id.replace(/^r_/, ''))}</span></button>`;
+  }).join('')}</div>`;
+}
+
 function renderChecks() {
   const p = state.project;
   if (!p) return;
   const run = selectedRun();
   const el = $('#checks');
-  const head = `<div class="panel-head"><h2>${icon('check')} Task checks</h2>${run ? `<span class="muted small mono">run ${esc(run.id)} · scene v${run.version}</span>` : ''}</div>`;
+  const head = `<div class="panel-head"><h2>${icon('check')} Task checks</h2>${runPicker()}</div>`;
   const disclaimer = `<div class="disclaimer small">${icon('info')} Checks of this simulated task only — not a real-world safety certification.</div>`;
   if (!run) {
     el.innerHTML = `${head}<div class="checks-empty">
@@ -768,14 +777,17 @@ function renderChecks() {
   else if (run.status === 'error') verdict = `<div class="verdict fail">${icon('warn')}<div><div class="v-title">Run error</div><div class="v-sub">${esc(run.failure_reason || 'The simulation did not complete.')}</div></div></div>`;
   else if (run.success) verdict = `<div class="verdict pass">${icon('check')}<div><div class="v-title">Placement succeeded</div><div class="v-sub">${(run.checks || []).filter((c) => c.status === 'pass').length}/${(run.checks || []).length} checks passed for scene v${run.version}</div></div></div>`;
   else verdict = `<div class="verdict fail">${icon('x')}<div><div class="v-title">Task failed${run.failure_reason ? ':' : ''}</div><div class="v-sub">${esc(run.failure_reason || 'See failing checks below.')}</div></div></div>`;
-  const staleNote = stale && !running ? `<div class="stale-note">${icon('warn')} These results are for <b>v${run.version}</b>; the scene is now <b>v${p.current_version}</b>. Run the task again to check the current version.</div>` : '';
+  const staleNote = stale && !running ? `<div class="stale-note">${icon('warn')}<span>These results are for <b>v${run.version}</b>; the scene is now <b>v${p.current_version}</b>. Run the task again to check the current version.</span></div>` : '';
   const curCheck = running ? STAGE_CHECK[run.stage] : null;
+  const stageIdx = running && run.status !== 'queued' ? STAGES.indexOf(run.stage) : -1;
+  const checkIdx = (id) => STAGES.findIndex((st) => STAGE_CHECK[st] === id);
   const list = (run.checks?.length ? run.checks : DEFAULT_CHECKS.map((c) => ({ ...c, status: running ? 'pending' : 'skip', detail: running ? '' : '—' })))
     .map((c) => {
       const st = c.status;
       const ic = st === 'pass' ? 'check' : st === 'fail' ? 'x' : 'dash';
       const live = running && c.id === curCheck;
-      return `<div class="check ${esc(st)} ${live ? 'live' : ''}"><span class="cicon">${live ? '<span class="spin sm"></span>' : icon(ic)}</span><span class="clabel">${esc(c.label)}</span><span class="cdetail">${esc(c.detail || (live ? 'in progress…' : running ? 'waiting' : ''))}</span></div>`;
+      const pendingText = live ? 'in progress…' : running && checkIdx(c.id) < stageIdx ? 'stage complete · result at end' : running ? 'waiting' : '';
+      return `<div class="check ${esc(st)} ${live ? 'live' : ''}"><span class="cicon">${live ? '<span class="spin sm"></span>' : icon(ic)}</span><span class="clabel">${esc(c.label)}</span><span class="cdetail">${esc(c.detail || pendingText)}</span></div>`;
     }).join('');
   const m = run.metrics || {};
   const metrics = !running && run.status === 'done' ? `<div class="run-metrics">
@@ -785,16 +797,24 @@ function renderChecks() {
     ${m.max_contact_force != null ? `<div><span>Peak contact</span><b class="mono">${num(m.max_contact_force, 1)} N</b></div>` : ''}
     ${m.halted_before_stage ? `<div class="halted"><span>Halted before</span><b class="mono">${esc(m.halted_before_stage)}</b></div>` : ''}
   </div>` : '';
-  const sug = run.suggestion && !running ? `<div class="suggestion">
-      <div class="sg-head">${icon('suggestion')} Suggested correction <span class="tag">not applied</span></div>
+  const appliedV = run.suggestion ? suggestionAppliedIn(run) : null;
+  const sug = run.suggestion && !running ? `<div class="suggestion ${appliedV ? 'applied' : ''}">
+      <div class="sg-head">${icon('suggestion')} Suggested correction ${appliedV ? `<span class="tag tag-green">applied → v${appliedV}</span>` : '<span class="tag">not applied</span>'}</div>
       <div class="sg-text">“${esc(run.suggestion.text)}”</div>
-      ${run.suggestion.patch?.ops?.length ? `<div class="sg-ops mono small">${run.suggestion.patch.ops.map((o) => `${esc(o.target)}.${esc(o.field)}: ${esc(fmtVal(getField(p.scene, o.target, o.field)))} → ${o.op === 'add' ? esc(fmtVal(+(getField(p.scene, o.target, o.field) || 0) + +o.value)) : esc(fmtVal(o.value))}`).join(' · ')}${run.suggestion.moved_m != null ? ` <span class="muted">(moves ${(run.suggestion.moved_m * 100).toFixed(0)} cm)</span>` : ''}</div>` : ''}
+      ${run.suggestion.patch?.ops?.length ? `<div class="sg-ops mono small">${run.suggestion.patch.ops.map((o) => !stale ? `${esc(o.target)}.${esc(o.field)}: ${esc(fmtVal(getField(p.scene, o.target, o.field)))} → ${o.op === 'add' ? esc(fmtVal(+(getField(p.scene, o.target, o.field) || 0) + +o.value)) : esc(fmtVal(o.value))}` : `${esc(o.target)}.${esc(o.field)} ${o.op === 'add' ? '+=' : '='} ${esc(fmtVal(o.value))}`).join(' · ')}${run.suggestion.moved_m != null ? ` <span class="muted">(moves ${(run.suggestion.moved_m * 100).toFixed(0)} cm)</span>` : ''}</div>` : ''}
       ${run.suggestion.verified ? `<div class="sg-verified small">${icon('check')} ${esc(run.suggestion.verified)}</div>` : ''}
-      <div class="sg-actions">
+      ${appliedV ? '' : `<div class="sg-actions">
         <button class="btn btn-primary btn-sm" id="applySuggestion" ${state.busy.correct || isReadOnly() || !run.suggestion.patch ? 'disabled' : ''}>${state.busy.correct === 'suggestion' ? '<span class="spin"></span>' : icon('suggestion')} Apply as new version</button>
-        <span class="muted small">${stale ? `Computed for v${run.version} — will be applied to v${p.current_version}.` : 'Creates a new version; nothing changes until you apply it.'}</span>
-      </div></div>` : '';
-  el.innerHTML = `${head}${verdict}${staleNote}<div class="check-list ${stale && !running ? 'is-stale' : ''}">${list}</div>${sug}${metrics}${disclaimer}`;
+        <span class="muted small">${!run.suggestion.patch ? 'No machine-applicable patch — use the correction box.' : stale ? `Computed for v${run.version} — will be applied to v${p.current_version}.` : 'Creates a new version; nothing changes until you apply it.'}</span>
+      </div>`}</div>` : '';
+  el.innerHTML = `${head}${verdict}${sug}${staleNote}<div class="check-list ${stale && !running ? 'is-stale' : ''}">${list}</div>${metrics}${disclaimer}`;
+}
+
+const appliedSuggestions = {}; // run id -> version
+function suggestionAppliedIn(run) {
+  if (appliedSuggestions[run.id]) return appliedSuggestions[run.id];
+  const v = (state.project?.versions || []).find((x) => x.origin === 'suggestion' && x.version > run.version && x.summary && x.summary.includes(run.suggestion.text));
+  return v ? v.version : null;
 }
 
 async function applySuggestion() {
@@ -806,6 +826,7 @@ async function applySuggestion() {
   try {
     const prev = clone(p.scene);
     const np = await api.applySuggestion(p.id, run.id);
+    appliedSuggestions[run.id] = np.current_version;
     const patch = run.suggestion.patch || { ops: [] };
     state.lastCorrection = { text: run.suggestion.text, patch, explanation: run.suggestion.verified ? `Suggested by run ${run.id} after the failed check. Verified before suggesting: ${run.suggestion.verified}.` : `Suggested by run ${run.id}.`, parser: 'suggestion', diff: patchDiff(prev, np.scene, patch), from: p.current_version, to: np.current_version, kind: 'suggestion' };
     state.correctError = null;
@@ -893,6 +914,9 @@ function bindCorrection() {
     e.preventDefault();
     doCorrect($('#correctInput').value, 'text');
   });
+  $('#correctInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doCorrect($('#correctInput').value, 'text'); }
+  });
   $('#examples').addEventListener('click', (e) => {
     const b = e.target.closest('[data-ex]');
     if (!b) return;
@@ -979,8 +1003,8 @@ function renderCell(force = false) {
     </div>`;
   };
   el.innerHTML = `
-    <div class="panel-head"><h2><span class="step">4</span>Workcell <span class="muted small">v${state.viewVersion}${ro ? ' · read-only' : ''}</span></h2>
-      <div class="legend">${['inferred', 'measured', 'user_confirmed', 'default'].map((k) => provChip(k)).join('')}</div></div>
+    <div class="panel-head"><h2><span class="step">4</span>Workcell</h2><span class="tag ${ro ? 'tag-amber' : 'tag-blue'}">v${state.viewVersion}${ro ? ' · read-only' : ' · editable'}</span></div>
+    <div class="legend"><span class="muted small">Where each value came from:</span>${['inferred', 'measured', 'user_confirmed', 'default'].map((k) => provChip(k)).join('')}</div>
     <div class="map-wrap"><div id="liveMap"></div><div class="map-cap muted small">Top-down · table frame · origin front-left${ro ? '' : ' · drag objects to move'}<br><span id="mapEdited"></span></div></div>
     <div class="task-edit">
       <span class="muted">Task</span> Pick <b class="obj">${esc(scene.task.object_id)}</b> ${icon('arrowRight')} place in
@@ -1009,7 +1033,7 @@ function renderCellLive() {
   const scene = state.draft;
   if (!scene) return;
   const map = $('#liveMap');
-  if (map) map.innerHTML = mapSvg(400, true);
+  if (map) map.innerHTML = mapSvg(Math.max(300, map.clientWidth || 400), true, 260);
   const me = $('#mapEdited');
   if (me) me.innerHTML = `${reachCaption()}${state.edits.size ? ' · <span class="amber-text">dashed amber = before edit</span>' : ''}`;
   if (state.mediaTab === 'topdown') renderSim();

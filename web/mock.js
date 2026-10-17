@@ -79,8 +79,8 @@ function render3d(scene, cam, W, H, { bg = true, label = '' } = {}) {
   const { table, robot, objects } = scene;
   const faces = [];
   const T = table.width, Dp = table.depth, Hh = table.height;
-  faces.push(...boxFaces([T / 2, Dp / 2, -0.02], [T, Dp, 0.04], [0.62, 0.5, 0.38]));
-  for (const [lx, ly] of [[0.04, 0.04], [T - 0.04, 0.04], [T - 0.04, Dp - 0.04], [0.04, Dp - 0.04]]) faces.push(...boxFaces([lx, ly, -Hh / 2 - 0.02], [0.05, 0.05, Hh - 0.04], [0.3, 0.3, 0.32]));
+  faces.push(...boxFaces([T / 2, Dp / 2, -0.02], [T, Dp, 0.04], 0, [0.62, 0.5, 0.38]));
+  for (const [lx, ly] of [[0.04, 0.04], [T - 0.04, 0.04], [T - 0.04, Dp - 0.04], [0.04, Dp - 0.04]]) faces.push(...boxFaces([lx, ly, -Hh / 2 - 0.02], [0.05, 0.05, Hh - 0.04], 0, [0.3, 0.3, 0.32]));
   for (const o of objects) {
     const col = o.color || (o.kind === 'bin' ? [0.4, 0.45, 0.5] : [0.85, 0.2, 0.2]);
     const inner = o.kind === 'bin' ? { wt: o.wall_thickness || 0.008, o } : null;
@@ -89,11 +89,12 @@ function render3d(scene, cam, W, H, { bg = true, label = '' } = {}) {
   if (robot) {
     const yw = (robot.yaw_deg * Math.PI) / 180, fx = Math.cos(yw), fy = Math.sin(yw);
     const W8 = [0.93, 0.94, 0.95], G = [0.25, 0.27, 0.3];
-    faces.push(...boxFaces([robot.x, robot.y, 0.03], [0.2, 0.2, 0.06], G));
-    faces.push(...boxFaces([robot.x, robot.y, 0.25], [0.12, 0.12, 0.38], W8));
-    faces.push(...boxFaces([robot.x + fx * 0.17, robot.y + fy * 0.17, 0.46], [0.36, 0.1, 0.1], W8.map((v) => v * 0.97), {}).map((f2) => f2));
-    faces.push(...boxFaces([robot.x + fx * 0.33, robot.y + fy * 0.33, 0.3], [0.09, 0.09, 0.28], W8));
-    faces.push(...boxFaces([robot.x + fx * 0.33, robot.y + fy * 0.33, 0.13], [0.06, 0.16, 0.05], G));
+    const yd = robot.yaw_deg;
+    faces.push(...boxFaces([robot.x, robot.y, 0.03], [0.2, 0.2, 0.06], yd, G));
+    faces.push(...boxFaces([robot.x, robot.y, 0.25], [0.12, 0.12, 0.38], yd, W8));
+    faces.push(...boxFaces([robot.x + fx * 0.17, robot.y + fy * 0.17, 0.46], [0.36, 0.1, 0.1], yd, W8.map((v) => v * 0.97)));
+    faces.push(...boxFaces([robot.x + fx * 0.33, robot.y + fy * 0.33, 0.3], [0.09, 0.09, 0.28], yd, W8));
+    faces.push(...boxFaces([robot.x + fx * 0.33, robot.y + fy * 0.33, 0.13], [0.06, 0.16, 0.05], yd, G));
   }
   const vis = [];
   for (const fc of faces) {

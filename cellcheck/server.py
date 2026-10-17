@@ -29,6 +29,7 @@ from .schema import Patch, Scene
 ROOT = store.ROOT
 WEB = ROOT / "web"
 SAMPLES = ROOT / "scenes"
+SYNTH = ROOT / "fixtures" / "synthetic_capture"
 SAMPLE_INFO = {
     "baseline": "Desk-sized cell, robot at the back edge: block on the table → grey tote.",
     "alt_layout": "Robot on the LEFT edge; block starts inside the blue tray → rotated tote.",
@@ -146,6 +147,7 @@ def upload(video: UploadFile = File(...)):
     meta["frames"] = [{"index": f["index"], "url": f"/files/projects/{meta['id']}/frames/{Path(f['path']).name}",
                        "t": round(f["t"], 2), "width": f.get("width"), "height": f.get("height")} for f in frames]
     meta["metrics"]["sampling_s"] = round(time.time() - t0, 2)
+    meta["video_url"] = f"/files/projects/{meta['id']}/upload/{src.name}"
     store.save_project(meta)
     return project_view(meta)
 
@@ -189,15 +191,20 @@ def _extract(pid: str, mode: str):
         except Exception as e:  # surface API errors verbatim; never fall back to fixture data
             raise HTTPException(502, f"Vision extraction failed: {e}")
     elif mode == "fixture":
-        ext = vision.fixture_extraction()
+        if meta["source"] == "upload":
+            raise HTTPException(400, "This project contains your uploaded recording; a fixture extraction would not describe "
+                                     "it. Set OPENAI_API_KEY for real extraction, or start a separate fixture project.")
+        ext = json.loads((SYNTH / "extraction.json").read_text()) if (SYNTH / "extraction.json").exists() \
+            else vision.fixture_extraction()
+        assert ext.get("fixture") is True, "fixture data must be flagged as fixture"
         if not meta["frames"]:
-            fx = ROOT / "fixtures" / "frames"
-            if fx.exists():
-                (pdir / "frames").mkdir(parents=True, exist_ok=True)
-                meta["frames"] = []
-                for i, p in enumerate(sorted(fx.glob("*.jpg"))):
-                    shutil.copy(p, pdir / "frames" / p.name)
-                    meta["frames"].append({"index": i, "url": f"/files/projects/{pid}/frames/{p.name}", "t": None})
+            src = SYNTH / "frames" if (SYNTH / "frames").exists() else ROOT / "fixtures" / "frames"
+            (pdir / "frames").mkdir(parents=True, exist_ok=True)
+            for i, p in enumerate(sorted(src.glob("*.jpg"))):
+                shutil.copy(p, pdir / "frames" / p.name)
+                meta["frames"].append({"index": i, "url": f"/files/projects/{pid}/frames/{p.name}", "t": None})
+            if (SYNTH / "capture.mp4").exists():
+                meta["video_url"] = "/fixtures/capture.mp4"
     else:
         raise HTTPException(400, "mode must be 'vision' or 'fixture'")
     vision.save_raw(ext, pdir / "extraction.json")
@@ -458,5 +465,7 @@ def run_bundle(rid: str):
 
 store.DATA.mkdir(parents=True, exist_ok=True)
 app.mount("/files", StaticFiles(directory=store.DATA), name="files")
+if SYNTH.exists():
+    app.mount("/fixtures", StaticFiles(directory=SYNTH), name="fixtures")
 if WEB.exists():
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")

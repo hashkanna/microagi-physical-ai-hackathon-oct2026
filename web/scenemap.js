@@ -30,7 +30,8 @@ export function renderTopdown(scene, opts = {}) {
   if (robot) grow(robot.x, robot.y, 0.16);
   for (const o of objects) grow(o.x, o.y, Math.max(o.size[0], o.size[1]) / 2 + 0.05);
   const spanX = maxx - minx, spanY = maxy - miny;
-  const px = opts.px || 420;
+  let px = opts.px || 420;
+  if (opts.fitH) px = Math.min(px, (opts.fitH * spanX) / spanY);
   const m = spanX / px; // metres per CSS pixel (approx.)
   const fs = (p) => f(p * m);
 

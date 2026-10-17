@@ -70,3 +70,11 @@ def test_block_off_table_rejected():
     s.obj("block_1").x = -0.2
     with pytest.raises(SceneError, match="off the tabletop"):
         compile_scene(s)
+
+
+def test_results_are_plain_json():
+    # numpy bools once leaked into run.json as the string "False" (truthy in JS); results must be strict JSON
+    res = run_task(load("unreachable"))
+    out = json.loads(json.dumps(res.as_dict()))
+    assert out["success"] is False
+    assert all(isinstance(w["reachable"], bool) for w in out["waypoints"])

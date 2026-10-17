@@ -246,7 +246,7 @@ def plan_task(scene: Scene, planner: Planner) -> tuple[list[Segment], list[dict]
         seg.trajectory = traj
         seg.q_end = qf
         seg.err = perr
-        seg.reachable = perr < POS_TOL and oerr < ORI_TOL
+        seg.reachable = bool(perr < POS_TOL and oerr < ORI_TOL)
         report.append({
             "stage": seg.stage,
             "target": [round(float(v), 4) for v in seg.pos],
@@ -507,7 +507,7 @@ def _finish(res: Result, phys: Physics, scene: Scene, t0: float) -> Result:
             "block_max_speed_last_0_5s": round(max(speeds), 4),
             "sim_time_s": round(phys.t, 2),
         })
-        ok = inside and below_rim and resting
+        ok = bool(inside and below_rim and resting)
         ck["placement"].status = "pass" if ok else "fail"
         where = (f"block at ({p[0]:.2f}, {p[1]:.2f}) m, {(p[2] - H) * 100:.1f} cm above tabletop")
         if ok:
@@ -525,7 +525,7 @@ def _finish(res: Result, phys: Physics, scene: Scene, t0: float) -> Result:
             if not resting:
                 why.append("still moving")
             ck["placement"].detail = f"{where}: " + ", ".join(why)
-        res.success = ok and ck["collisions"].status == "pass"
+        res.success = bool(ok and ck["collisions"].status == "pass")
         if not res.success and res.failure_reason is None:
             if ck["reachable"].status == "fail":
                 res.failure_reason = "Required targets are out of reach: " + ck["reachable"].detail
