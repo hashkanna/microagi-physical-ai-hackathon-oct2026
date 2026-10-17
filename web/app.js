@@ -88,7 +88,16 @@ function setUrlProject(pid) {
   history.replaceState(null, '', `${location.pathname}?${q.toString()}`.replace(/\?$/, ''));
 }
 
+function normProject(p) {
+  const runs = (p.runs || []).map((r, i) => ({ ...r, _i: i }));
+  const desc = runs.length > 1 && (runs[0].created_at || '') > (runs[runs.length - 1].created_at || '');
+  p.runs = (desc ? runs.reverse() : runs).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')).map(({ _i, ...r }) => r);
+  return p;
+}
+
 function setProject(p, { selectRun = null } = {}) {
+  normProject(p);
+  for (const r of p.runs) if (r.checks && !isRunning(r) && !state.runs[r.id]?.checks) state.runs[r.id] = r;
   const changedProject = !state.project || state.project.id !== p.id;
   if (!changedProject && p.current_version !== state.project.current_version) {
     requestAnimationFrame(() => document.querySelector('.col-sim')?.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -167,7 +176,10 @@ function pollRun(rid) {
       if (!isRunning(r)) {
         clearInterval(id);
         state.pollTimer = null;
-        try { state.project = await api.getProject(state.project.id); } catch { /* keep */ }
+        try { state.project = normProject(await api.getProject(state.project.id)); } catch { /* keep */ }
+        if (r.status === 'done' && !r.success && state.selectedRunId === rid) {
+          setTimeout(() => { const ck = $('#checks'); if (ck) document.querySelector('.col-sim')?.scrollTo({ top: Math.max(0, ck.offsetTop - 180), behavior: 'smooth' }); }, 150);
+        }
         if (r.status === 'done') toast(r.success ? `Run ${esc(r.id)}: placement succeeded` : `Run ${esc(r.id)}: task failed — see checks`, r.success ? 'ok' : 'err');
         else toast(`Run ${esc(r.id)} errored: ${esc(r.failure_reason || 'see details')}`, 'err');
         if (state.selectedRunId === rid) state.mediaTab = 'playback';
@@ -429,7 +441,12 @@ function renderStart() {
       </div>
       <div class="panel start-card">
         <div class="panel-head"><h2>${icon('sample')} Or start from a sample</h2></div>
-        <div class="samples">${samples}</div>
+        <div class="samples">${samples}
+          <button class="sample" data-fixture="1" ${state.busy.sample ? 'disabled' : ''}>
+            <div class="sample-ic fx">${icon('film')}</div>
+            <div class="sample-text"><div class="sample-name">Bundled capture <span class="tag tag-amber">fixture</span></div><div class="sample-desc">Synthetic phone frames + canned extraction — full flow without an API key.</div></div>
+            <div class="sample-go">${state.busy.sample === 'fixture' ? '<span class="spin"></span>' : icon('arrowRight')}</div>
+          </button></div>
         ${recent ? `<div class="recent-head">Recent projects</div><div class="recents">${recent}</div>` : ''}
       </div>
     </div>
@@ -492,7 +509,7 @@ function renderCapture() {
             <svg id="mainOverlay" class="frame-overlay"></svg>
           </div>
           <div class="frame-cap"><span class="mono">frame ${String(frame.index).padStart(2, '0')} · t=${num(frame.t, 1)} s</span>
-            ${frame.index === p.overview_frame ? '<span class="tag">overview</span>' : ''}${showOverlay ? '<span class="tag tag-blue">corners marked</span>' : ''}</div>
+            ${showOverlay ? '<span class="tag tag-blue">corners marked</span>' : frame.index === p.overview_frame ? '<span class="tag">overview</span>' : ''}${p.video_url ? `<a class="small" href="${esc(p.video_url)}" target="_blank" rel="noopener">source video</a>` : ''}</div>
         </div>
         <div class="thumbs" id="thumbs">${frames.map((f) => `<button class="thumb ${f.index === frame.index ? 'sel' : ''}" data-frame="${f.index}" title="frame ${f.index} · t=${f.t}s"><img src="${esc(f.url)}" alt="" loading="lazy"></button>`).join('')}</div>
         <div class="muted small">${frames.length} frames sampled from the ${p.source === 'upload' ? 'uploaded video' : `${esc(p.source)} capture`}</div>
@@ -529,7 +546,7 @@ function renderCapture() {
             ${state.busy.extract === 'vision' ? `<span class="spin"></span> Asking ${esc(s?.vision_model || 'model')} to read ${frames.length} frames…` : `${icon('spark')} Run vision extraction${s?.vision_model ? ` <span class="muted">· ${esc(s.vision_model)}</span>` : ''}`}
           </button>
         </span>
-        <button class="btn btn-block btn-fixture" id="extractFixture" ${ro || state.busy.extract ? 'disabled' : ''} data-tip="Loads a pre-recorded extraction for this capture. Clearly labelled FIXTURE — no model call.">
+        <button class="btn btn-block btn-fixture" id="extractFixture" ${ro || state.busy.extract || p.source === 'upload' ? 'disabled' : ''} data-tip="${p.source === 'upload' ? 'A fixture extraction would not describe your uploaded recording. Set OPENAI_API_KEY for real extraction, or start a fixture project.' : 'Loads a pre-recorded (canned) model response for the bundled capture. Clearly labelled FIXTURE — no model call.'}">
           ${state.busy.extract === 'fixture' ? '<span class="spin"></span> Loading fixture…' : `${icon('sample')} Use fixture extraction <span class="tag tag-amber">fixture</span>`}
         </button>
       </div>
@@ -616,7 +633,7 @@ async function saveCalibration() {
 async function extract(mode) {
   const p = state.project;
   state.busy.extract = mode;
-  renderCapture();
+  renderAll();
   try {
     const np = await api.extract(p.id, mode);
     setProject(np);
@@ -649,8 +666,18 @@ function renderSim() {
   let key, html;
   const tab = state.mediaTab;
   if (!hasScene) {
-    key = 'noscene';
-    html = `<div class="media-empty">${icon('extraction')}<div class="me-title">No scene yet</div><div class="muted">Run vision extraction (or use the fixture) in the Capture panel to build the workcell.</div></div>`;
+    key = `noscene:${state.busy.extract || ''}:${!!state.status?.openai_configured}`;
+    const s = state.status;
+    const canVision = !!s?.openai_configured && (p.frames || []).length > 0;
+    const canFixture = p.source !== 'upload';
+    html = state.busy.extract
+      ? `<div class="media-empty"><span class="spin lg"></span><div class="me-title">${state.busy.extract === 'vision' ? `Asking ${esc(s?.vision_model || 'the vision model')} to read ${(p.frames || []).length} frames…` : 'Loading fixture extraction…'}</div><div class="muted">Building an approximate workcell: table, two bins, one block, robot base. Usually 10–40 s.</div></div>`
+      : `<div class="media-empty">${icon('extraction')}<div class="me-title">Next: build the workcell from the frames</div>
+        <div class="muted">${(p.frames || []).length} frames sampled. Optionally enter the measured table size in Calibration first — measured values override the model's guess.</div>
+        <div class="cta-row">
+          <span class="tipwrap" ${canVision ? '' : `data-tip="${esc(!s?.openai_configured ? 'OpenAI is not configured on the server (no OPENAI_API_KEY).' : 'No frames to analyse.')}"`}><button class="btn btn-primary" data-extract="vision" ${canVision ? '' : 'disabled'}>${icon('spark')} Run vision extraction</button></span>
+          ${canFixture ? `<button class="btn btn-fixture" data-extract="fixture">${icon('sample')} Use fixture extraction <span class="tag tag-amber">fixture</span></button>` : ''}
+        </div></div>`;
   } else if (tab === 'playback') {
     if (!run) {
       key = `norun:${v}`;
@@ -715,7 +742,7 @@ function renderSim() {
   const curRuns = runSummaries().filter((r) => r.version === p.current_version);
   $('#runbar').innerHTML = `
     <button class="btn btn-primary btn-run ${nudge ? 'nudge' : ''}" id="runBtn" ${!p.current_version || busy ? 'disabled' : ''}>
-      ${busy ? '<span class="spin"></span> Simulating…' : `${icon('play')} Run task on v${p.current_version || '—'}`}</button>
+      ${busy ? '<span class="spin"></span> Simulating…' : `${icon('play')} Run task${p.current_version ? ` on v${p.current_version}` : ''}`}</button>
     <div class="runbar-info">
       ${busy && run && isRunning(run) ? stageStepper(run, true) : p.current_version ? `<div class="task-line">${taskLine(p.scene)}</div>
       <div class="muted small">${curRuns.length ? `v${p.current_version} has ${curRuns.length} run${curRuns.length > 1 ? 's' : ''}` : `<span class="amber-text">v${p.current_version} has not been run yet</span>`} · Franka Panda · MuJoCo</div>` : '<div class="muted">Build a scene first.</div>'}
@@ -729,8 +756,16 @@ function taskLine(scene) {
   return `<span class="muted">Task</span> Pick <b class="obj" title="${esc(o?.label || '')}">${esc(scene.task.object_id)}</b> ${icon('arrowRight')} place in <b class="obj tgt" title="${esc(t?.label || '')}">${esc(scene.task.target_id)}</b>`;
 }
 
+function stageIndex(run) {
+  if (run.status === 'queued' || run.stage === 'queued') return -1;
+  const i = STAGES.indexOf(run.stage);
+  if (i >= 0) return i;
+  if (/search|fix|suggest/i.test(run.stage || '')) return STAGES.indexOf('executing');
+  return 0;
+}
+
 function stageStepper(run, compact = false) {
-  const idx = run.status === 'queued' ? -1 : STAGES.indexOf(run.stage);
+  const idx = stageIndex(run);
   return `<ol class="stepper ${compact ? 'compact' : ''}">${STAGES.map((s, i) => `<li class="${i < idx ? 'done' : i === idx ? 'active' : ''}"><span class="sdot">${i < idx ? icon('check') : ''}</span><span class="slabel">${s}</span></li>`).join('')}</ol>`;
 }
 
@@ -741,6 +776,7 @@ function bindSim() {
     if (t.dataset.tab) { state.mediaTab = t.dataset.tab; renderSim(); return; }
     if (t.dataset.run) { state.selectedRunId = t.dataset.run; state.mediaTab = 'playback'; renderSim(); renderChecks(); renderTimeline(); ensureRun(t.dataset.run); return; }
     if (t.id === 'runBtn') runTask();
+    if (t.dataset.extract) extract(t.dataset.extract);
     if (t.id === 'applySuggestion') applySuggestion();
   });
 }
@@ -773,13 +809,13 @@ function renderChecks() {
   const running = isRunning(run);
   const stale = run.version !== p.current_version;
   let verdict = '';
-  if (running) verdict = `<div class="verdict running"><span class="spin"></span><div><div class="v-title">Simulating… ${esc(run.status === 'queued' ? 'queued' : STAGE_LABEL[run.stage] || run.stage)}</div><div class="v-sub">Results appear when the run finishes.</div></div></div>`;
+  if (running) verdict = `<div class="verdict running"><span class="spin"></span><div><div class="v-title">Simulating… ${esc(run.status === 'queued' ? 'queued' : STAGE_LABEL[run.stage] || run.stage || '')}</div><div class="v-sub">Results appear when the run finishes.</div></div></div>`;
   else if (run.status === 'error') verdict = `<div class="verdict fail">${icon('warn')}<div><div class="v-title">Run error</div><div class="v-sub">${esc(run.failure_reason || 'The simulation did not complete.')}</div></div></div>`;
   else if (run.success) verdict = `<div class="verdict pass">${icon('check')}<div><div class="v-title">Placement succeeded</div><div class="v-sub">${(run.checks || []).filter((c) => c.status === 'pass').length}/${(run.checks || []).length} checks passed for scene v${run.version}</div></div></div>`;
   else verdict = `<div class="verdict fail">${icon('x')}<div><div class="v-title">Task failed${run.failure_reason ? ':' : ''}</div><div class="v-sub">${esc(run.failure_reason || 'See failing checks below.')}</div></div></div>`;
   const staleNote = stale && !running ? `<div class="stale-note">${icon('warn')}<span>These results are for <b>v${run.version}</b>; the scene is now <b>v${p.current_version}</b>. Run the task again to check the current version.</span></div>` : '';
   const curCheck = running ? STAGE_CHECK[run.stage] : null;
-  const stageIdx = running && run.status !== 'queued' ? STAGES.indexOf(run.stage) : -1;
+  const stageIdx = running ? stageIndex(run) : -1;
   const checkIdx = (id) => STAGES.findIndex((st) => STAGE_CHECK[st] === id);
   const list = (run.checks?.length ? run.checks : DEFAULT_CHECKS.map((c) => ({ ...c, status: running ? 'pending' : 'skip', detail: running ? '' : '—' })))
     .map((c) => {
@@ -1163,6 +1199,15 @@ function bindGlobal() {
       renderStart();
       try { setProject(await api.createFromSample(s.dataset.sample)); toast(`Sample “${esc(s.dataset.sample)}” loaded as v1.`, 'ok'); }
       catch (err) { toast(`Could not load sample: ${esc(errMsg(err))}`, 'err'); }
+      finally { state.busy.sample = false; renderAll(); }
+      return;
+    }
+    const fx = e.target.closest('[data-fixture]');
+    if (fx && !fx.disabled) {
+      state.busy.sample = 'fixture';
+      renderStart();
+      try { setProject(await api.createFixture()); toast('Fixture capture loaded — frames + canned extraction (labelled FIXTURE).', 'ok', 5000); }
+      catch (err) { toast(`Could not create fixture project: ${esc(errMsg(err))}`, 'err'); }
       finally { state.busy.sample = false; renderAll(); }
       return;
     }

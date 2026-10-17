@@ -53,6 +53,7 @@ export const api = {
   listProjects: () => req('GET', '/api/projects'),
   getProject: (pid) => req('GET', `/api/projects/${enc(pid)}`),
   createFromSample: (sample_id) => req('POST', '/api/projects', { source: 'sample', sample_id }),
+  createFixture: () => req('POST', '/api/projects', { source: 'fixture' }),
   putScene: (pid, scene, summary) => req('PUT', `/api/projects/${enc(pid)}/scene`, { scene, summary }),
   correct: (pid, text) => req('POST', `/api/projects/${enc(pid)}/correct`, { text }),
   calibrate: (pid, body) => req('POST', `/api/projects/${enc(pid)}/calibrate`, body),
@@ -61,8 +62,8 @@ export const api = {
   getRun: (rid) => req('GET', `/api/runs/${enc(rid)}`),
   applySuggestion: (pid, run_id) => req('POST', `/api/projects/${enc(pid)}/apply_suggestion`, { run_id }),
   reach: (pid, v) => req('GET', `/api/projects/${enc(pid)}/versions/${v}/reach`),
-  // Not in docs/API.md v1: used to show an older version read-only. Callers must tolerate 404.
-  getVersion: (pid, v) => req('GET', `/api/projects/${enc(pid)}/versions/${v}`),
+  // Scene JSON of any version (used to show an older version read-only).
+  getVersion: (pid, v) => req('GET', `/api/projects/${enc(pid)}/versions/${v}/scene.json`),
 
   previewUrl: (pid, v) => (mock ? mock.previewUrl(pid, v) : `/api/projects/${enc(pid)}/versions/${v}/preview.png`),
   topdownUrl: (pid, v) => (mock ? mock.topdownUrl(pid, v) : `/api/projects/${enc(pid)}/versions/${v}/topdown.png`),

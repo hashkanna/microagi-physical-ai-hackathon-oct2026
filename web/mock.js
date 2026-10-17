@@ -355,16 +355,23 @@ const routes = [
   ['GET', /^\/api\/projects$/, async () => ({ projects: Object.values(db.projects).map((p) => ({ id: p.id, name: p.name, source: p.source, created_at: p.created_at, current_version: p.current_version, runs: p.runs.length })).reverse() })],
   ['POST', /^\/api\/projects$/, async (m, b) => {
     await delay(500);
+    if (b.source === 'fixture') {
+      const p = newProject({ source: 'fixture', name: 'fixture capture', scene: null, frames: 8 });
+      p.extraction = { mode: 'fixture', model: 'fixture', elapsed_s: 0.6, raw_url: '#', warnings: [], fixture: true };
+      addVersion(p, clone(p.frameScene), 'extraction', 'Draft scene from fixture extraction (canned model response)', false);
+      p.metrics.generation_s = 0.6;
+      return projectView(p);
+    }
     const scene = baseScene(b.sample_id);
     const p = newProject({ source: 'sample', name: b.sample_id, scene, frames: 6, origin: 'sample', summary: `Initial scene from sample '${b.sample_id}'` });
     p.metrics.generation_s = 0.3;
     return projectView(p);
   }],
   ['GET', /^\/api\/projects\/([^/]+)$/, async (m) => projectView(proj(m[1]))],
-  ['GET', /^\/api\/projects\/([^/]+)\/versions\/(\d+)$/, async (m) => {
+  ['GET', /^\/api\/projects\/([^/]+)\/versions\/(\d+)\/scene\.json$/, async (m) => {
     const p = proj(m[1]); const v = +m[2];
     if (!p.scenes[v]) throw new MockError(404, 'No such version');
-    return { ...p.versions.find((x) => x.version === v), scene: clone(p.scenes[v]) };
+    return clone(p.scenes[v]);
   }],
   ['PUT', /^\/api\/projects\/([^/]+)\/scene$/, async (m, b) => {
     await delay(350);

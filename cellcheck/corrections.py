@@ -204,7 +204,8 @@ def _xy(target: str, scene: Scene) -> tuple[float, float]:
 
 
 def _parse_move(t: str, scene: Scene) -> Patch | None:
-    if not re.search(r"\b(?:move|shift|slide|nudge|push|pull|translate|drag|bring|put)\b", t):
+    if not re.search(r"\b(?:move|shift|slide|nudge|push|pull|translate|drag|bring|put|mount|place|relocate|"
+                     r"further|farther|actually|should be|sits?)\b", t):
         return None
     m = _LEN.search(t)
     setm = re.findall(r"\b([xy])\s*(?:=|to|:)\s*" + _NUM + r"\s*" + _LEN_U + "?", t)

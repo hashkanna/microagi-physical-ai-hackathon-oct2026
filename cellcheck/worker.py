@@ -16,6 +16,8 @@ from . import store
 from .render import render_still, render_video
 from .schema import Scene
 
+VIDEO_FPS = 20
+
 
 def do_run(rid: str) -> None:
     d = store.run_dir(rid)
@@ -27,7 +29,7 @@ def do_run(rid: str) -> None:
         from .reach import suggest_fix
         from .sim import run_task
 
-        res = run_task(scene, progress=lambda st: store.update_run(rid, stage=st))
+        res = run_task(scene, fps=VIDEO_FPS, progress=lambda st: store.update_run(rid, stage=st))
         out = res.as_dict()
         if res.xml:
             (d / "scene.xml").write_text(res.xml)
@@ -41,7 +43,8 @@ def do_run(rid: str) -> None:
         if res.frames_qpos:
             verdict = ("PLACEMENT SUCCEEDED" if res.success else "TASK FAILED: " + _short(res), res.success)
             banner = f"SIMULATION · scene v{run['version']} · run {rid}"
-            render_video(res.xml, scene, res.frames_qpos, res.frame_labels, d / "run.mp4", banner=banner, verdict=verdict)
+            render_video(res.xml, scene, res.frames_qpos, res.frame_labels, d / "run.mp4", fps=VIDEO_FPS, banner=banner,
+                         verdict=verdict)
             render_still(res.xml, scene, d / "poster.png", qpos=res.frames_qpos[-1], label=verdict[0])
             update.update(video_url=f"/files/runs/{rid}/run.mp4", poster_url=f"/files/runs/{rid}/poster.png")
         store.update_run(rid, status="done", stage="done", elapsed_s=round(time.time() - t0, 1), **update)

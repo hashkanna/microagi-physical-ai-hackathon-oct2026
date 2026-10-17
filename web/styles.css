@@ -234,6 +234,9 @@ a { color: var(--accent); }
 .media-empty > .ic { width: 34px; height: 34px; color: var(--accent); opacity: 0.85; padding: 6px; border-radius: 10px; background: rgba(76, 194, 255, 0.08); border: 1px solid rgba(76, 194, 255, 0.25); box-sizing: content-box; }
 .media-empty.err > .ic { color: var(--red); background: var(--red-bg); border-color: rgba(248, 81, 73, 0.3); }
 .me-title { font-weight: 700; font-size: 16px; color: var(--text); }
+.cta-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+.media-empty .spin.lg { width: 30px; height: 30px; border-width: 3px; }
+.sample-ic.fx { background: rgba(76, 194, 255, 0.1); color: var(--accent); }
 .small-empty { padding: 30px 10px; margin: 0 auto; }
 .media-badges { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
 .badge {
