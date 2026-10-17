@@ -98,6 +98,28 @@ def grasp_rotation(block_yaw_deg: float, robot_yaw_deg: float) -> np.ndarray:
     return _rotz(best) @ flip
 
 
+def _yaw_of(R: np.ndarray) -> float:
+    return math.atan2(R[1, 0], R[0, 0])
+
+
+def _arc_path(p0, R0, p1, R1, base_xy):
+    """TCP path around the robot base: radius, bearing, height and tool yaw interpolate linearly."""
+    bx, by = base_xy
+    r0, r1 = math.hypot(p0[0] - bx, p0[1] - by), math.hypot(p1[0] - bx, p1[1] - by)
+    a0, a1 = math.atan2(p0[1] - by, p0[0] - bx), math.atan2(p1[1] - by, p1[0] - bx)
+    da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+    y0, y1 = _yaw_of(R0), _yaw_of(R1)
+    dy = (y1 - y0 + math.pi) % (2 * math.pi) - math.pi
+    flip = np.diag([1.0, -1.0, -1.0])
+
+    def path(s: float):
+        r, a = r0 + s * (r1 - r0), a0 + s * da
+        p = np.array([bx + r * math.cos(a), by + r * math.sin(a), p0[2] + s * (p1[2] - p0[2])])
+        return p, _rotz(y0 + s * dy) @ flip
+
+    return path
+
+
 def min_jerk(s: float) -> float:
     return 10 * s**3 - 15 * s**4 + 6 * s**5
 
@@ -184,7 +206,7 @@ def plan_task(scene: Scene, planner: Planner) -> tuple[list[Segment], list[dict]
         Segment("descend", "cart", 1.4, np.array([block.x, block.y, grasp_z]), R_pick),
         Segment("close gripper", "grip", 0.9, grip=GRIP_CLOSED),
         Segment("lift", "cart", 1.4, pre_pick, R_pick),
-        Segment("transfer", "joint", 2.2, pre_place, R_place),
+        Segment("transfer", "arc", 2.2, pre_place, R_place),
         Segment("descend to bin", "cart", 1.4, np.array([target.x, target.y, place_z]), R_place),
         Segment("open gripper", "grip", 0.7, grip=GRIP_OPEN),
         Segment("retreat", "cart", 1.2, pre_place, R_place),
@@ -197,20 +219,27 @@ def plan_task(scene: Scene, planner: Planner) -> tuple[list[Segment], list[dict]
         if seg.kind in ("grip", "hold"):
             seg.q_end = q.copy()
             continue
-        n = max(2, int(seg.duration / CTRL_DT))
-        if seg.kind == "cart":
-            p0, _ = planner.tcp_pose(q)
+        if seg.kind in ("cart", "arc"):
+            p0, R0 = planner.tcp_pose(q)
+            path = _arc_path(p0, R0, seg.pos, seg.rot, (scene.robot.x, scene.robot.y)) if seg.kind == "arc" \
+                else (lambda s, p0=p0, p1=seg.pos, R=seg.rot: (p0 + s * (p1 - p0), R))
+            if seg.kind == "arc":  # keep the payload slow: ~0.25 m/s average along the arc
+                length = sum(np.linalg.norm(path((i + 1) / 20)[0] - path(i / 20)[0]) for i in range(20))
+                seg.duration = max(seg.duration, length / 0.25)
+            n = max(2, int(seg.duration / CTRL_DT))
             traj = []
             qi = q.copy()
             worst = 0.0
             for i in range(1, n + 1):
-                s = min_jerk(i / n)
-                qi, perr, oerr = planner.solve(qi, p0 + s * (seg.pos - p0), seg.rot, iters=40)
+                pi, Ri = path(min_jerk(i / n))
+                qi, perr, oerr = planner.solve(qi, pi, Ri, iters=40)
                 worst = max(worst, perr)
                 traj.append(qi[:7].copy())
             qf, perr, oerr = planner.solve(qi, seg.pos, seg.rot)
             traj[-1] = qf[:7].copy()
+            perr = max(perr, worst if worst > 3 * POS_TOL else 0.0)  # mid-path misses also count
         else:
+            n = max(2, int(seg.duration / CTRL_DT))
             qf, perr, oerr = planner.solve(q, seg.pos, seg.rot, iters=400)
             traj = [q[:7] + min_jerk(i / n) * (qf[:7] - q[:7]) for i in range(1, n + 1)]
             worst = perr
@@ -382,6 +411,15 @@ def run_task(scene: Scene, *, fps: int = 25, progress=None) -> Result:
 
     # 3. Plan (IK on the separate robot-only model)
     say("planning")
+    from .compiler import GRIPPER_MAX_OPENING
+
+    blk = scene.obj(scene.task.object_id)
+    if min(blk.size[:2]) > GRIPPER_MAX_OPENING - 0.005:
+        ck["reachable"].status = "fail"
+        ck["reachable"].detail = (f"grasp infeasible: {blk.id} is {min(blk.size[:2]) * 100:.1f} cm across its narrowest side; "
+                                  f"the Panda hand opens {GRIPPER_MAX_OPENING * 100:.0f} cm")
+        res.failure_reason = "Block is too wide for the Panda hand: " + ck["reachable"].detail
+        return _finish(res, phys, scene, t0)
     planner = Planner(scene)
     segs, report = plan_task(scene, planner)
     res.waypoints = report
@@ -412,13 +450,13 @@ def run_task(scene: Scene, *, fps: int = 25, progress=None) -> Result:
 
     for seg in segs:
         phys.stage = seg.stage
-        if seg.kind in ("cart", "joint") and not seg.reachable:
+        if seg.kind in ("cart", "joint", "arc") and not seg.reachable:
             phys.stage = f"halted before {seg.stage}"
             res.metrics["halted_before_stage"] = seg.stage
             run_ticks(int(1.8 / CTRL_DT), f"HALTED: {seg.stage} target out of reach")
             break
         n = max(1, int(seg.duration / CTRL_DT))
-        if seg.kind in ("cart", "joint"):
+        if seg.kind in ("cart", "joint", "arc"):
             run_ticks(n, seg.stage, lambda i: phys.data.ctrl.__setitem__(slice(0, 7), seg.trajectory[min(i, len(seg.trajectory) - 1)]))
         elif seg.kind == "grip":
             g0 = grip

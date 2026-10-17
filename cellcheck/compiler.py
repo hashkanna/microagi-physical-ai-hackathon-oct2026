@@ -29,6 +29,12 @@ PANDA_XML = PANDA_DIR / "panda.xml"
 TCP_OFFSET = 0.1034
 # Approximate Panda base footprint radius (link0), used for overlap checks only.
 ROBOT_BASE_RADIUS = 0.11
+# Menagerie's hand actuator is a soft position servo (kp = 100 N/m on the finger tendon) that squeezes a
+# 4.5 cm block with only ~2 N, far below the real Franka Hand's 70 N continuous grasp force. We stiffen
+# that servo 5x (~11 N squeeze, force limit unchanged at 100 N). This is a disclosed actuator assumption,
+# not a weld: the block is still held purely by finger contact friction.
+GRIP_GAIN_SCALE = 5.0
+GRIPPER_MAX_OPENING = 0.08
 
 
 class SceneError(ValueError):
@@ -122,6 +128,11 @@ def _panda_tree(meshdir: str, base_pos, base_quat) -> ET.Element:
     link0 = root.find(".//body[@name='link0']")
     link0.set("pos", _f(*base_pos))
     link0.set("quat", _f(*base_quat))
+    act = root.find(".//general[@name='actuator8']")
+    g = [float(v) for v in act.get("gainprm").split()]
+    b = [float(v) for v in act.get("biasprm").split()]
+    act.set("gainprm", _f(g[0] * GRIP_GAIN_SCALE, *g[1:]))
+    act.set("biasprm", _f(b[0], b[1] * GRIP_GAIN_SCALE, b[2] * GRIP_GAIN_SCALE))
     hand = root.find(".//body[@name='hand']")
     ET.SubElement(hand, "site", name="tcp", pos=_f(0, 0, TCP_OFFSET), size="0.006", rgba="1 0.3 0.1 0.6", group="4")
     return root
@@ -140,6 +151,7 @@ def compile_scene(scene: Scene, *, meshdir: str | None = None, robot_only: bool 
     opt.set("timestep", "0.002")
     opt.set("cone", "elliptic")
     opt.set("impratio", "10")
+    opt.set("noslip_iterations", "4")  # removes soft-contact creep in the grasp; no welds or extra forces
 
     # Visual / assets
     visual = ET.Element("visual")

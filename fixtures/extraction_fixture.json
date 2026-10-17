@@ -1,0 +1,144 @@
+{
+  "fixture": true,
+  "model": "fixture",
+  "elapsed_s": 0.0,
+  "description": "Canned example response for a 1.0 x 0.7 m table with a red cube, a grey tray and a blue (target) tray. Pixel coordinates refer to a 1280x720 overview frame; ground truth positions: red cube (0.24, 0.30), grey tray (0.52, 0.27), blue tray (0.79, 0.31). fixtures/frames/frame_00.jpg is a synthetic drawing of this layout (overview frame 0).",
+  "frames": [
+    {
+      "index": 0,
+      "path": "fixtures/frames/frame_00.jpg",
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "result": {
+    "overview_frame": 0,
+    "table": {
+      "corners_px": {
+        "front_left": [
+          170,
+          660
+        ],
+        "front_right": [
+          1110,
+          660
+        ],
+        "back_right": [
+          935,
+          255
+        ],
+        "back_left": [
+          345,
+          255
+        ]
+      },
+      "width_m": 0.95,
+      "depth_m": 0.72,
+      "confidence": 0.7
+    },
+    "objects": [
+      {
+        "label": "red cube",
+        "kind": "block",
+        "is_target_bin": false,
+        "size_m": [
+          0.05,
+          0.05,
+          0.05
+        ],
+        "footprint_center_px": [
+          445,
+          440
+        ],
+        "position_m": [
+          0.26,
+          0.28
+        ],
+        "yaw_deg": 5.0,
+        "color_rgb": [
+          0.85,
+          0.1,
+          0.1
+        ],
+        "confidence": 0.9,
+        "notes": "Small solid cube, clearly visible."
+      },
+      {
+        "label": "blue tray",
+        "kind": "bin",
+        "is_target_bin": true,
+        "size_m": [
+          0.28,
+          0.2,
+          0.08
+        ],
+        "footprint_center_px": [
+          856,
+          434
+        ],
+        "position_m": [
+          0.76,
+          0.33
+        ],
+        "yaw_deg": 0.0,
+        "color_rgb": [
+          0.15,
+          0.3,
+          0.8
+        ],
+        "confidence": 0.85,
+        "notes": "Has a 'DROP' sticker, likely the destination."
+      },
+      {
+        "label": "grey tray",
+        "kind": "bin",
+        "is_target_bin": false,
+        "size_m": [
+          0.26,
+          0.18,
+          0.07
+        ],
+        "footprint_center_px": [
+          655,
+          457
+        ],
+        "position_m": [
+          0.5,
+          0.25
+        ],
+        "yaw_deg": -3.0,
+        "color_rgb": [
+          0.55,
+          0.55,
+          0.55
+        ],
+        "confidence": 0.8,
+        "notes": "Shallow open tray."
+      },
+      {
+        "label": "laptop",
+        "kind": "other",
+        "is_target_bin": false,
+        "size_m": [
+          0.32,
+          0.22,
+          0.02
+        ],
+        "footprint_center_px": [
+          403,
+          293
+        ],
+        "position_m": [
+          0.13,
+          0.6
+        ],
+        "yaw_deg": 10.0,
+        "color_rgb": null,
+        "confidence": 0.6,
+        "notes": "Closed laptop near the back-left corner."
+      }
+    ],
+    "notes": "Table edges partly occluded in early frames; sizes are visual estimates."
+  },
+  "raw_text": null
+}

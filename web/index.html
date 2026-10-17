@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CellCheck</title>
+  <meta name="description" content="Phone capture → editable MuJoCo workcell → robot task check">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1620'/%3E%3Cpath d='M8 9h16v14H8z' fill='none' stroke='%234cc2ff' stroke-width='2.5'/%3E%3Cpath d='M11 16.5l3.5 3.5 6.5-7' fill='none' stroke='%233fb950' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" id="brand" title="Back to start">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="8" fill="#0e1620" stroke="#2b3a4c"/><path d="M8 9h16v14H8z" fill="none" stroke="#4cc2ff" stroke-width="2.2"/><path d="M11 16.5l3.5 3.5 6.5-7" fill="none" stroke="#3fb950" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="brand-text">
+        <div class="wordmark">Cell<span>Check</span></div>
+        <div class="tagline">phone capture → editable workcell → robot task check</div>
+      </div>
+    </div>
+    <div class="project-name" id="projectName"></div>
+    <div class="pills" id="statusPills"></div>
+  </header>
+
+  <nav class="versionbar hidden" id="versionBar">
+    <div class="vb-label">Scene versions</div>
+    <div class="timeline" id="timeline"></div>
+    <div class="vb-right" id="downloads"></div>
+  </nav>
+
+  <div class="readonly-banner hidden" id="readonlyBanner"></div>
+
+  <!-- Start screen -->
+  <main class="start hidden" id="startView"></main>
+
+  <!-- Project workspace -->
+  <main class="workspace hidden" id="workspace">
+    <section class="col col-capture" id="colCapture"></section>
+    <section class="col col-sim">
+      <div class="panel sim-panel">
+        <div class="panel-head">
+          <h2><span class="step">2</span>Simulation</h2>
+          <div class="run-picker" id="runPicker"></div>
+        </div>
+        <div class="media-tabs" id="mediaTabs"></div>
+        <div class="media" id="media"></div>
+        <div class="runbar" id="runbar"></div>
+      </div>
+      <div class="panel checks-panel" id="checks"></div>
+    </section>
+    <section class="col col-cell">
+      <div class="panel correct-panel" id="correctPanel">
+        <div class="panel-head">
+          <h2><span class="step">3</span>Correct in plain language</h2>
+          <span class="muted small" id="parserHint"></span>
+        </div>
+        <form class="correct-form" id="correctForm" autocomplete="off">
+          <input id="correctInput" type="text" placeholder="e.g. Move the target bin 20 cm toward the table's left edge" aria-label="Scene correction">
+          <button class="btn btn-primary" id="correctBtn" type="submit">Apply</button>
+        </form>
+        <div class="examples" id="examples"></div>
+        <div id="correctResult"></div>
+      </div>
+      <div class="panel cell-panel" id="cellPanel"></div>
+    </section>
+  </main>
+
+  <footer class="footer hidden" id="footer"></footer>
+
+  <div class="modal hidden" id="cornerModal" role="dialog" aria-modal="true" aria-label="Mark table corners"></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
